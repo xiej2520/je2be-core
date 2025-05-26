@@ -52,6 +52,8 @@ int main(int argc, char *argv[]) {
 
   unsigned int concurrency = result["n"].as<unsigned int>();
 
+  cout << "input: " << inputString << ", output: " << outputString << " n: " << concurrency << endl;
+
   auto start = chrono::high_resolution_clock::now();
   defer {
     auto elapsed = chrono::high_resolution_clock::now() - start;
@@ -76,9 +78,11 @@ int main(int argc, char *argv[]) {
 #endif
 
   unique_ptr<StdoutProgressReporter> progress(new StdoutProgressReporter);
+  cout << "Running converter" << endl;
   auto st = Converter::Run(input, output, concurrency, options, progress.get());
   progress.reset();
   if (auto err = st.error(); err) {
+    cerr << "Error running converter" << endl;
     cerr << "what: " << err->fWhat << endl;
     cerr << "trace: " << endl;
     for (int i = err->fTrace.size() - 1; i >= 0; i--) {
