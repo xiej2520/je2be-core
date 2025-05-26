@@ -122,7 +122,9 @@ private:
       } else if (cz <= 18) {
         return std::nullopt;
       } else if (cz <= 30) {
-        return Pos2i(0, -4);
+        // used for translating end gateway exit position
+        //return Pos2i(0, -4);
+        return Pos2i(0, 0);
       } else {
         return Pos2i(0, 0);
       }
@@ -157,8 +159,10 @@ private:
         return Copy();
       } else if (cz <= 14) {
         return Empty();
-      } else if (cz <= 26) {
-        return Move(0, 4);
+      } else if (cz <= 30) {
+        // Move(0, 4) moves the end city inside world border
+        //return Move(0, 4);
+        return Move(0, 0);
       } else {
         return Empty();
       }
