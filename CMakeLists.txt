@@ -5,6 +5,12 @@ include(cmake/CPM.cmake)
 
 option(JE2BE_CORE_USE_INTEL_COMPILER OFF)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
+if(CMAKE_EXPORT_COMPILE_COMMANDS)
+  set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES 
+      ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
+endif()
+
 if ("${CMAKE_PROJECT_NAME}" STREQUAL "${PROJECT_NAME}")
   set(CMAKE_CXX_STANDARD 20)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -543,32 +549,32 @@ target_link_libraries(je2be INTERFACE ${je2be_link_libraries})
 target_link_directories(je2be INTERFACE ${je2be_link_directories})
 target_compile_definitions(je2be PUBLIC -DXXH_NAMESPACE=LZ4_)
 
-add_executable(j2b example/j2b.cpp ${je2be_header_files})
-target_link_libraries(j2b ${je2be_exe_link_libraries} cxxopts)
-target_include_directories(j2b PRIVATE ${pbar_SOURCE_DIR})
-
-add_executable(b2j example/b2j.cpp ${je2be_header_files})
-target_link_libraries(b2j ${je2be_exe_link_libraries} cxxopts)
-target_include_directories(b2j PRIVATE ${pbar_SOURCE_DIR})
-
-add_executable(x2j example/x2j.cpp example/lce-progress.hpp ${je2be_header_files})
-target_link_libraries(x2j ${je2be_exe_link_libraries} cxxopts)
-target_include_directories(x2j PRIVATE ${pbar_SOURCE_DIR})
+#add_executable(j2b example/j2b.cpp ${je2be_header_files})
+#target_link_libraries(j2b ${je2be_exe_link_libraries} cxxopts)
+#target_include_directories(j2b PRIVATE ${pbar_SOURCE_DIR})
+#
+#add_executable(b2j example/b2j.cpp ${je2be_header_files})
+#target_link_libraries(b2j ${je2be_exe_link_libraries} cxxopts)
+#target_include_directories(b2j PRIVATE ${pbar_SOURCE_DIR})
+#
+#add_executable(x2j example/x2j.cpp example/lce-progress.hpp ${je2be_header_files})
+#target_link_libraries(x2j ${je2be_exe_link_libraries} cxxopts)
+#target_include_directories(x2j PRIVATE ${pbar_SOURCE_DIR})
 
 add_executable(p2j example/p2j.cpp example/lce-progress.hpp ${je2be_header_files})
 target_link_libraries(p2j ${je2be_exe_link_libraries} cxxopts)
 target_include_directories(p2j PRIVATE ${pbar_SOURCE_DIR})
 
-add_executable(dump example/dump.cpp ${je2be_header_files})
-target_link_libraries(dump je2be)
-
-add_executable(je2be-test ${test_files} ${je2be_header_files})
-target_link_libraries(je2be-test ${je2be_exe_link_libraries} doctest)
-target_include_directories(je2be-test PRIVATE src)
-
-add_executable(j2b2j test/j2b2j.cpp)
-target_link_libraries(j2b2j je2be doctest)
-target_include_directories(j2b2j PRIVATE src)
+#add_executable(dump example/dump.cpp ${je2be_header_files})
+#target_link_libraries(dump je2be)
+#
+#add_executable(je2be-test ${test_files} ${je2be_header_files})
+#target_link_libraries(je2be-test ${je2be_exe_link_libraries} doctest)
+#target_include_directories(je2be-test PRIVATE src)
+#
+#add_executable(j2b2j test/j2b2j.cpp)
+#target_link_libraries(j2b2j je2be doctest)
+#target_include_directories(j2b2j PRIVATE src)
 
 if (MSVC)
   foreach(target IN ITEMS j2b b2j x2j je2be-test)
