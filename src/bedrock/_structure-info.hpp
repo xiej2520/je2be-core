@@ -37,11 +37,9 @@ public:
     }
   }
 
+  // ChunkPos.asLong(cx, cz), avoid strict aliasing UB
   static i64 PackStructureStartsReference(i32 cx, i32 cz) {
-    i64 r;
-    *(i32 *)&r = cx;
-    *((i32 *)&r + 1) = cz;
-    return r;
+    return static_cast<i64>((static_cast<u64>(static_cast<u32>(cz)) << 32) | static_cast<u32>(cx));
   }
 };
 
