@@ -1073,6 +1073,8 @@ private:
       ParseEntities(*e, *chunk, ctx);
     }
 
+    ParseStructures(dimension, *chunk, ctx);
+
     result.swap(chunk);
 
     return Status::Ok();
@@ -1114,6 +1116,51 @@ private:
         continue;
       }
       chunk.fEntities.push_back(converted->fEntity);
+    }
+  }
+
+  static void ParseStructures(mcfile::Dimension dimension, mcfile::je::WritableChunk &chunk, Context const &ctx) {
+    auto const cx = chunk.fChunkX;
+    auto const cz = chunk.fChunkZ;
+
+    auto structuresTag = Compound();
+    auto startsTag = Compound();
+    auto referencesTag = Compound();
+    
+    // does not use "minecraft:" prefix in 1.13-1.17
+    std::unordered_map<std::u8string_view, std::shared_ptr<CompoundTag>> starts;
+    std::unordered_map<std::u8string_view, std::unordered_set<i64>> references;
+
+    auto structures = ctx.fStructures.NearbyStarts(dimension, Pos2i{cx, cz});
+    for (auto const *s : structures) {
+      // write structure start if it's in the same chunk
+      if (s->fChunkX == cx && s->fChunkZ == cz) {
+        // there can only be one per chunk
+        starts[FeatureName(s->fType)] = s->Convert();
+      }
+
+      references[FeatureName(s->fType)].insert(LegacyStructures::PackStructureStartsReference(s->fChunkX, s->fChunkZ));
+    }
+
+    for (auto const &[structureKey, structureStart] : starts) {
+      startsTag->set(std::u8string{structureKey}, structureStart);
+    }
+    
+    for (auto &[structureKey, structureReferences] : references) {
+      std::vector<i64> referencesList(structureReferences.begin(), structureReferences.end());
+      auto structureReferencesTag = std::make_shared<LongArrayTag>(referencesList);
+      referencesTag->set(std::u8string{structureKey}, structureReferencesTag);
+    }
+    
+    if (!startsTag->empty()) {
+      // "Starts" in 1.13-1.17, "starts" in 1.18
+      structuresTag->set(u8"Starts", startsTag);
+    }
+    if (!referencesTag->empty()) {
+      structuresTag->set(u8"References", referencesTag);
+    }
+    if (!structuresTag->empty()) {
+      chunk.fStructures = structuresTag;
     }
   }
 
