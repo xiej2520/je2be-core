@@ -2,9 +2,11 @@
 
 #include <je2be/nbt.hpp>
 #include <je2be/uuid.hpp>
+#include <je2be/pos2.hpp>
 
 #include "_pos3.hpp"
 #include "lce/_tile-entity-convert-result.hpp"
+#include "lce/structure/_legacy-structures.hpp"
 
 namespace je2be::lce {
 
@@ -14,12 +16,13 @@ public:
   using EntityNameMigrator = std::function<std::u8string(std::u8string const &)>;
 
   Context(TileEntityConverter tileEntityConverter, EntityNameMigrator entityNameMigrator)
-      : fTileEntityConverter(tileEntityConverter), fEntityNameMigrator(entityNameMigrator), fNewSeaLevel(false) {}
+      : fTileEntityConverter(tileEntityConverter), fEntityNameMigrator(entityNameMigrator), fNewSeaLevel(false), fStructures{} {}
 
   TileEntityConverter const fTileEntityConverter;
   EntityNameMigrator const fEntityNameMigrator;
   std::unordered_map<std::u8string, Uuid> fPlayers;
   bool fNewSeaLevel;
+  LegacyStructures fStructures;
 };
 
 } // namespace je2be::lce

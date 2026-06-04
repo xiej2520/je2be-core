@@ -22,6 +22,7 @@
 #include "lce/_savegame.hpp"
 #include "lce/_tile-entity.hpp"
 #include "lce/_world.hpp"
+#include "lce/structure/_structure.hpp"
 #include "xbox360/_save-bin.hpp"
 
 namespace je2be::lce {
@@ -54,6 +55,9 @@ public:
     Context ctx(TileEntity::Convert, Entity::MigrateName);
     if (auto st = CopyMapFiles(*temp, outputDirectory); !st.ok()) {
       return JE2BE_ERROR_PUSH(st);
+    }
+    if (auto st = LoadStructures(*temp, ctx); !st.ok()) {
+        return JE2BE_ERROR_PUSH(st);
     }
     auto copyPlayersResult = CopyPlayers(*temp, outputDirectory, behavior, ctx, options);
     if (!copyPlayersResult) {
@@ -619,6 +623,39 @@ private:
         return JE2BE_ERROR_WHAT(ec1.message());
       }
     }
+    return Status::Ok();
+  }
+
+  static Status LoadStructures(std::filesystem::path const &inputDirectory, Context &ctx) {
+    using namespace std;
+
+    namespace fs = std::filesystem;
+
+    auto dataFrom = inputDirectory / "data";
+    if (!Fs::Exists(dataFrom)) {
+      return Status::Ok();
+    }
+
+    for (DirectoryIterator it(dataFrom); it.valid(); it.next()) {
+      if (!it->is_regular_file()) {
+        continue;
+      }
+      auto fileNameString = it->path().filename().u8string();
+
+      static const std::unordered_map<std::u8string, std::pair<mcfile::Dimension, StructureType>> structureFiles = {
+      };
+      auto sIt = structureFiles.find(fileNameString);
+      if (sIt != structureFiles.end()) {
+        auto inStream = make_shared<mcfile::stream::GzFileInputStream>(it->path());
+        auto inRoot = CompoundTag::Read(inStream, mcfile::Encoding::Java);
+        inStream.reset();
+
+        if (inRoot) {
+          ctx.fStructures.Extract(*inRoot, sIt->second.first, sIt->second.second);
+        }
+      }
+    }
+
     return Status::Ok();
   }
 };

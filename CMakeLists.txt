@@ -353,6 +353,7 @@ set(je2be_src_files
   src/lce-item.cpp
   src/lce-minecraft-save-info.cpp
   src/lce-savegame.cpp
+  src/lce-structure.cpp
   src/lce-terraform.cpp
   src/lce-tile-entity.cpp
   src/lce-world.cpp
