@@ -41,11 +41,13 @@ public:
 
     auto tempRoot = options.getTempDirectory();
     auto temp = mcfile::File::CreateTempDir(tempRoot);
+    temp = std::optional(std::filesystem::path("ps3out"));
+    cout << temp.value() << endl;
     if (!temp) {
       return JE2BE_ERROR;
     }
     defer {
-      Fs::DeleteAll(*temp);
+      //Fs::DeleteAll(*temp);
     };
 
     if (!Savegame::ExtractFilesFromDecompressedSavegame(inputSavegame, *temp)) {
@@ -54,6 +56,9 @@ public:
     Context ctx(TileEntity::Convert, Entity::MigrateName);
     if (auto st = CopyMapFiles(*temp, outputDirectory); !st.ok()) {
       return JE2BE_ERROR_PUSH(st);
+    }
+    if (auto st = LoadStructures(*temp, ctx); !st.ok()) {
+        return JE2BE_ERROR_PUSH(st);
     }
     auto copyPlayersResult = CopyPlayers(*temp, outputDirectory, behavior, ctx, options);
     if (!copyPlayersResult) {
@@ -619,6 +624,13 @@ private:
         return JE2BE_ERROR_WHAT(ec1.message());
       }
     }
+    return Status::Ok();
+  }
+
+  static Status LoadStructures(std::filesystem::path const &inputFile, Context const &ctx) {
+    using namespace std;
+    
+    auto m = Structures{};
     return Status::Ok();
   }
 };

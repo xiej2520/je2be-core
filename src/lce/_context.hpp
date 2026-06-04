@@ -2,9 +2,11 @@
 
 #include <je2be/nbt.hpp>
 #include <je2be/uuid.hpp>
+#include <je2be/pos2.hpp>
 
 #include "_pos3.hpp"
 #include "lce/_tile-entity-convert-result.hpp"
+#include "lce/structure/_structures.hpp"
 
 namespace je2be::lce {
 
@@ -20,6 +22,7 @@ public:
   EntityNameMigrator const fEntityNameMigrator;
   std::unordered_map<std::u8string, Uuid> fPlayers;
   bool fNewSeaLevel;
+  Structures fStructures;
 };
 
 } // namespace je2be::lce
