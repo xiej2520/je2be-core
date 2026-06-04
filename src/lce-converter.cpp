@@ -644,6 +644,7 @@ private:
 
       static const std::unordered_map<std::u8string, std::pair<mcfile::Dimension, StructureType>> structureFiles = {
         {u8"Monument.dat", {mcfile::Dimension::Overworld, StructureType::OceanMonument}},
+        {u8"Fortress.dat", {mcfile::Dimension::Nether, StructureType::Fortress}},
       };
       auto sIt = structureFiles.find(fileNameString);
       if (sIt != structureFiles.end()) {

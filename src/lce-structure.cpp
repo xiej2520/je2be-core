@@ -45,12 +45,44 @@ std::u8string NamespaceFeatureName(StructureType type) {
 
 const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
   {u8"OMB", StructurePieceType::OMB},
+
+  {u8"NeBCr", StructurePieceType::NeBCr},
+  {u8"NeBEF", StructurePieceType::NeBEF},
+  {u8"NeBS", StructurePieceType::NeBS},
+  {u8"NeCCS", StructurePieceType::NeCCS},
+  {u8"NeCTB", StructurePieceType::NeCTB},
+  {u8"NeCE", StructurePieceType::NeCE},
+  {u8"NeSCSC", StructurePieceType::NeSCSC},
+  {u8"NeSCLT", StructurePieceType::NeSCLT},
+  {u8"NeSC", StructurePieceType::NeSC},
+  {u8"NeSCRT", StructurePieceType::NeSCRT},
+  {u8"NeCSR", StructurePieceType::NeCSR},
+  {u8"NeMT", StructurePieceType::NeMT},
+  {u8"NeRC", StructurePieceType::NeRC},
+  {u8"NeSR", StructurePieceType::NeSR},
+  {u8"NeStart", StructurePieceType::NeStart},
 };
 
 // namespaced structure pieces are registered in lowercase in 1.14+
 std::u8string_view PieceId(StructurePieceType piece) {
   switch (piece) {
   case StructurePieceType::OMB: return u8"minecraft:omb";
+
+  case StructurePieceType::NeBCr: return u8"minecraft:nebcr";
+  case StructurePieceType::NeBEF: return u8"minecraft:nebef";
+  case StructurePieceType::NeBS: return u8"minecraft:nebs";
+  case StructurePieceType::NeCCS: return u8"minecraft:neccs";
+  case StructurePieceType::NeCTB: return u8"minecraft:nectb";
+  case StructurePieceType::NeCE: return u8"minecraft:nece";
+  case StructurePieceType::NeSCSC: return u8"minecraft:nescsc";
+  case StructurePieceType::NeSCLT: return u8"minecraft:nesclt";
+  case StructurePieceType::NeSC: return u8"minecraft:nesc";
+  case StructurePieceType::NeSCRT: return u8"minecraft:nescrt";
+  case StructurePieceType::NeCSR: return u8"minecraft:necsr";
+  case StructurePieceType::NeMT: return u8"minecraft:nemt";
+  case StructurePieceType::NeRC: return u8"minecraft:nerc";
+  case StructurePieceType::NeSR: return u8"minecraft:nesr";
+  case StructurePieceType::NeStart: return u8"minecraft:nestart";
   default: return u8"INVALID";
   }
 }
@@ -214,6 +246,47 @@ std::unique_ptr<StructurePiece> StructurePiece::Parse(mcfile::stream::InputStrea
     return nullptr;
   }
   id = it->second;
+  switch (id) {
+  case StructurePieceType::OMB: break;
+
+  case StructurePieceType::NeMT: { // blaze spawner
+    u8 b;
+    if (!reader.read(&b)) {
+      return nullptr;
+    }
+    data->set(u8"Mob", Bool(static_cast<bool>(b)));
+    break;
+  }
+  case StructurePieceType::NeBEF: {
+    i32 seed;
+    if (!reader.read(&seed)) {
+      return nullptr;
+    }
+    data->set(u8"Seed", Int(seed));
+    break;
+  }
+  case StructurePieceType::NeSCLT: // fallthrough
+  case StructurePieceType::NeSCRT: {
+    u8 b;
+    if (!reader.read(&b)) {
+      return nullptr;
+    }
+    data->set(u8"Chest", Bool(static_cast<bool>(b)));
+    break;
+  }
+  case StructurePieceType::NeBCr:
+  case StructurePieceType::NeBS:
+  case StructurePieceType::NeCCS:
+  case StructurePieceType::NeCTB:
+  case StructurePieceType::NeCE:
+  case StructurePieceType::NeSCSC:
+  case StructurePieceType::NeSC:
+  case StructurePieceType::NeCSR:
+  case StructurePieceType::NeRC:
+  case StructurePieceType::NeSR:
+  case StructurePieceType::NeStart:
+    break;
+  }
 
   return std::make_unique<StructurePiece>(pieceBB, O, GD, id, data);
 }
