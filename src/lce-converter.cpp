@@ -644,6 +644,8 @@ private:
 
       static const std::unordered_map<std::u8string, std::pair<mcfile::Dimension, StructureType>> structureFiles = {
         {u8"Monument.dat", {mcfile::Dimension::Overworld, StructureType::OceanMonument}},
+        // default Temple to SwampHut, parse from piece
+        {u8"Temple.dat", {mcfile::Dimension::Overworld, StructureType::SwampHut}},
         {u8"Fortress.dat", {mcfile::Dimension::Nether, StructureType::Fortress}},
       };
       auto sIt = structureFiles.find(fileNameString);

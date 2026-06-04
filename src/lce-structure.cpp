@@ -46,6 +46,11 @@ std::u8string NamespaceFeatureName(StructureType type) {
 const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
   {u8"OMB", StructurePieceType::OMB},
 
+  {u8"TeJP", StructurePieceType::TeJP},
+  {u8"Iglu", StructurePieceType::Iglu},
+  {u8"TeSH", StructurePieceType::TeSH},
+  {u8"TeDP", StructurePieceType::TeDP},
+
   {u8"NeBCr", StructurePieceType::NeBCr},
   {u8"NeBEF", StructurePieceType::NeBEF},
   {u8"NeBS", StructurePieceType::NeBS},
@@ -67,6 +72,11 @@ const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
 std::u8string_view PieceId(StructurePieceType piece) {
   switch (piece) {
   case StructurePieceType::OMB: return u8"minecraft:omb";
+
+  case StructurePieceType::TeJP: return u8"minecraft:tejp";
+  case StructurePieceType::Iglu: return u8"minecraft:iglu";
+  case StructurePieceType::TeSH: return u8"minecraft:tesh";
+  case StructurePieceType::TeDP: return u8"minecraft:tedp";
 
   case StructurePieceType::NeBCr: return u8"minecraft:nebcr";
   case StructurePieceType::NeBEF: return u8"minecraft:nebef";
@@ -161,6 +171,17 @@ std::optional<Structure> Structure::Parse(std::span<const u8> bytes, StructureTy
     pieces.push_back(std::move(piece));
   }
 
+  // pieces should always be > 0, but allow it for now in case we can't parse all children
+  if (pieces.size() != 0) {
+    switch (pieces[0]->fId) {
+    case StructurePieceType::TeJP: type = StructureType::JungleTemple; break;
+    case StructurePieceType::Iglu: type = StructureType::Igloo; break;
+    case StructurePieceType::TeSH: type = StructureType::SwampHut; break;
+    case StructurePieceType::TeDP: type = StructureType::DesertPyramid; break;
+    default:
+      break;
+    }
+  }
 
   Structure start{ type, chunkX, chunkZ, bb, std::move(pieces) };
 
@@ -210,6 +231,25 @@ CompoundTagPtr Structure::Convert() const {
       //out->set(u8"Processed", processedTag);
       break;
     }
+    case StructureType::SwampHut: {
+      // note: witch hut bounding box is 7x7x9 in 1.8.1+
+      // LCE usually has correct size, sometimes broken 8x7x10 boxes idk?
+      // In Java 1.12- and LCE, witch hut child bounding boxes are sometimes not aligned with the
+      // full structure bounding box, which causes spawning to fail. Fix by setting BB to child box.
+      if (!fPieces.empty()) {
+        out->set(u8"BB", toBoundingBox(fPieces[0]->fBB));
+      }
+      break;
+    }
+    case StructureType::Igloo:
+      // Igloo bounding box is commonly misaligned in Java 1.12/LCE
+      //
+      // Mojang just deletes igloo bounding boxes in v1488 datafixer `IglooMetadataRemovalFix`: 
+      // if all pieces are `Iglu` then delete `Children` and set `id: Igloo`
+      // Upon load the structure data will be deleted and be replaced with `igloo: { id: "INVALID" }`
+      // in vanilla 1.16.5 :shrug:
+      out->erase(u8"Children");
+      break;
     default:
       break;
     }
@@ -246,8 +286,43 @@ std::unique_ptr<StructurePiece> StructurePiece::Parse(mcfile::stream::InputStrea
     return nullptr;
   }
   id = it->second;
+  if (id == StructurePieceType::TeJP || id == StructurePieceType::Iglu
+    || id == StructurePieceType::TeSH || id == StructurePieceType::TeDP) {
+    // common ScatteredFeaturePiece fields
+    i32 Width, Height, Depth;
+    i32 HPos;
+    if (!reader.read(&Width) || !reader.read(&Height) || !reader.read(&Depth) || !reader.read(&HPos)) {
+      return nullptr;
+    }
+
+    // TODO: the Temple pieces have some bytes after HPos before their specific fields,
+    // that I don't know how to parse. Figure out what rest of bytes mean.
+    // Temples should only have 1 child, so we can skip parsing the rest and just set these bools
+    // to true in the converter.
+    switch (id) {
+    case StructurePieceType::TeJP:
+      // placedMainChest, placedHiddenChest, placedTrap1, placedTrap2 bools after unknown bytes
+    case StructurePieceType::Iglu:
+      // doesn't have any other fields in Java 1.12, but 1.13 has "Template" and "Rot" fields
+      break;
+    case StructurePieceType::TeSH:
+      // bool Witch; // assume Witch has been spawned, don't know which byte this is
+      // ignore rest of bytes, unknown & not needed in Java
+      break;
+    case StructurePieceType::TeDP:
+      // hasPlacedChest0, hasPlacedChest1, hasPlacedChest2, hasPlacedChest3 bools after unknown bytes
+      break;
+    default: return nullptr;
+    }
+    return std::make_unique<TemplePiece>(pieceBB, O, GD, id, data, Width, Height, Depth, HPos);
+  }
+
   switch (id) {
   case StructurePieceType::OMB: break;
+  case StructurePieceType::TeJP: break;
+  case StructurePieceType::Iglu: break;
+  case StructurePieceType::TeSH: break;
+  case StructurePieceType::TeDP: break;
 
   case StructurePieceType::NeMT: { // blaze spawner
     u8 b;
@@ -291,6 +366,9 @@ std::unique_ptr<StructurePiece> StructurePiece::Parse(mcfile::stream::InputStrea
   return std::make_unique<StructurePiece>(pieceBB, O, GD, id, data);
 }
 
+TemplePiece::TemplePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, CompoundTagPtr data, i32 width, i32 height, i32 depth, i32 hPos)
+  : StructurePiece(bb, orientation, generationDepth, id, data), fWidth{width}, fHeight{height}, fDepth{depth}, fHPos{hPos} {}
+
 CompoundTagPtr StructurePiece::Convert() const {
   auto out = Compound();
   // sometimes child bounding box can be outside structure bounding box (e.g. witch huts),
@@ -306,6 +384,44 @@ CompoundTagPtr StructurePiece::Convert() const {
     }
   }
 
+  return out;
+}
+
+CompoundTagPtr TemplePiece::Convert() const {
+  auto out = StructurePiece::Convert();
+
+  out->set(u8"Width", Int(fWidth));
+  out->set(u8"Height", Int(fHeight));
+  out->set(u8"Depth", Int(fDepth));
+  out->set(u8"HPos", Int(fHPos));
+
+  switch (fId) {
+  case StructurePieceType::TeJP: {
+    // TODO: decode bool from save data
+    out->set(u8"placedMainChest", Bool(true));
+    out->set(u8"placedHiddenChest", Bool(true));
+    out->set(u8"placedTrap1", Bool(true));
+    out->set(u8"placedTrap2", Bool(true));
+    break;
+  }
+  case StructurePieceType::Iglu:
+    break;
+  case StructurePieceType::TeSH:
+    // TODO: decode bool from save data
+    out->set(u8"Witch", Bool(true));
+    // no cats in LCE
+    out->set(u8"Cat", Bool(false));
+    break;
+  case StructurePieceType::TeDP:
+    // TODO: decode bool from save data
+    out->set(u8"hasPlacedChest0", Bool(true));
+    out->set(u8"hasPlacedChest1", Bool(true));
+    out->set(u8"hasPlacedChest2", Bool(true));
+    out->set(u8"hasPlacedChest3", Bool(true));
+    break;
+  default:
+    break;
+  }
   return out;
 }
 

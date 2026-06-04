@@ -15,6 +15,11 @@ enum class StructureType;
 enum class StructurePieceType {
   OMB, // OceanMonumentBuilding is the only piece saved in Java 1.12.2 and LCE
 
+  TeJP, // jungle pyramid
+  Iglu, // igloo
+  TeSH, // swamp hut
+  TeDP, // desert pyramid
+
   NeBCr,   // BridgeCrossing
   NeBEF,   // BridgeEndFiller
   NeBS,    // BridgeStraight
@@ -47,6 +52,18 @@ struct StructurePiece {
   virtual CompoundTagPtr Convert() const;
 
   static std::unique_ptr<StructurePiece> Parse(mcfile::stream::InputStreamReader &reader, StructureType type);
+};
+
+struct TemplePiece : StructurePiece {
+  i32 fWidth;
+  i32 fHeight;
+  i32 fDepth;
+  i32 fHPos;  // y level of surface the structure was moved to, or -1 if not moved
+  TemplePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, CompoundTagPtr data,
+    i32 width, i32 height, i32 depth, i32 hPos
+  );
+
+  CompoundTagPtr Convert() const override;
 };
 
 bool readBB(mcfile::stream::InputStreamReader& reader, Volume& out);
