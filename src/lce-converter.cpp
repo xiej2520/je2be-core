@@ -643,6 +643,7 @@ private:
       auto fileNameString = it->path().filename().u8string();
 
       static const std::unordered_map<std::u8string, std::pair<mcfile::Dimension, StructureType>> structureFiles = {
+        {u8"Monument.dat", {mcfile::Dimension::Overworld, StructureType::OceanMonument}},
       };
       auto sIt = structureFiles.find(fileNameString);
       if (sIt != structureFiles.end()) {

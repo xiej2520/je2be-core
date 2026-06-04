@@ -44,11 +44,13 @@ std::u8string NamespaceFeatureName(StructureType type) {
 }
 
 const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
+  {u8"OMB", StructurePieceType::OMB},
 };
 
 // namespaced structure pieces are registered in lowercase in 1.14+
 std::u8string_view PieceId(StructurePieceType piece) {
   switch (piece) {
+  case StructurePieceType::OMB: return u8"minecraft:omb";
   default: return u8"INVALID";
   }
 }
@@ -130,6 +132,21 @@ std::optional<Structure> Structure::Parse(std::span<const u8> bytes, StructureTy
 
   Structure start{ type, chunkX, chunkZ, bb, std::move(pieces) };
 
+  if (type == StructureType::OceanMonument) {
+    // Ocean Monument has extra `Processed` bytes, if we can't read it then just skip them, there
+    // should only be 1 OMB piece in the structure.
+    i32 processedLen;
+    if (reader.read(&processedLen)) {
+      for (size_t i = 0; i < processedLen; i++) {
+        i32 x;
+        i32 z;
+        if (!reader.read(&x) || !reader.read(&z)) {
+          break;
+        }
+        start.fProcessed.emplace_back(x, z);
+      }
+    }
+  }
   
   return start;
 }
@@ -148,6 +165,22 @@ CompoundTagPtr Structure::Convert() const {
   }
   out->set(u8"Children", children);
 
+  switch (fType) {
+  case StructureType::OceanMonument: {
+      // "Processed" doesn't appear to be used in game code since 1.14
+      //auto processedTag = List<Tag::Type::Compound>();
+      //for (auto const &chunkCoord : fProcessed) {
+      //  auto chunkCoordTag = Compound();
+      //  chunkCoordTag->set(u8"X", Int(chunkCoord.fX));
+      //  chunkCoordTag->set(u8"Z", Int(chunkCoord.fZ));
+      //  processedTag->push_back(chunkCoordTag);
+      //}
+      //out->set(u8"Processed", processedTag);
+      break;
+    }
+    default:
+      break;
+    }
 
   return out;
 }
