@@ -14,6 +14,22 @@ enum class StructureType;
 
 enum class StructurePieceType {
   OMB, // OceanMonumentBuilding is the only piece saved in Java 1.12.2 and LCE
+
+  NeBCr,   // BridgeCrossing
+  NeBEF,   // BridgeEndFiller
+  NeBS,    // BridgeStraight
+  NeCCS,   // CastleCorridorStairsPiece
+  NeCTB,   // CastleCorridorTBalconyPiece
+  NeCE,    // CastleEntrance
+  NeSCSC,  // CastleSmallCorridorCrossingPiece
+  NeSCLT,  // CastleSmallCorridorLeftTurnPiece
+  NeSC,    // CastleSmallCorridorPiece
+  NeSCRT,  // CastleSmallCorridorRightTurnPiece
+  NeCSR,   // CastleStalkRoom (netherwart farm)
+  NeMT,    // MonsterThrone (blaze spawner)
+  NeRC,    // RoomCrossing
+  NeSR,    // StairsRoom
+  NeStart, // StartPiece
 };
 
 std::u8string_view PieceId(StructurePieceType piece);
