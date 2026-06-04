@@ -648,6 +648,7 @@ private:
         // default Temple to SwampHut, parse from piece
         {u8"Temple.dat", {mcfile::Dimension::Overworld, StructureType::SwampHut}},
         {u8"Fortress.dat", {mcfile::Dimension::Nether, StructureType::Fortress}},
+        {u8"EndCity.dat", {mcfile::Dimension::End, StructureType::EndCity}},
       };
       auto sIt = structureFiles.find(fileNameString);
       if (sIt != structureFiles.end()) {

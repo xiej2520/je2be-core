@@ -49,6 +49,8 @@ enum class StructurePieceType {
   NeRC,    // RoomCrossing
   NeSR,    // StairsRoom
   NeStart, // StartPiece
+  
+  ECP,     // EndCityPiece
 };
 
 std::u8string_view PieceId(StructurePieceType piece);
@@ -86,6 +88,21 @@ struct StrongholdPiece : StructurePiece {
   StrongholdPiece(
     Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, CompoundTagPtr data,
     i32 entryDoor
+  );
+
+  CompoundTagPtr Convert() const override;
+};
+
+// EndCity structures store 0-length string for id instead of "EndCity",
+// and GD is a random Int
+struct EndCityPiece : StructurePiece {
+  i32 fTPX;
+  i32 fTPY;
+  i32 fTPZ;
+  // LCE doesn't store "Rot", "OW", or "Template" fields for end cities
+  EndCityPiece(
+    Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
+    CompoundTagPtr data, i32 tpx, i32 tpy, i32 tpz
   );
 
   CompoundTagPtr Convert() const override;

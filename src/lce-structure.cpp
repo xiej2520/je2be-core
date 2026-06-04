@@ -80,6 +80,8 @@ const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
   {u8"NeRC", StructurePieceType::NeRC},
   {u8"NeSR", StructurePieceType::NeSR},
   {u8"NeStart", StructurePieceType::NeStart},
+
+  {u8"ECP", StructurePieceType::ECP},
 };
 
 // namespaced structure pieces are registered in lowercase in 1.14+
@@ -121,6 +123,8 @@ std::u8string_view PieceId(StructurePieceType piece) {
   case StructurePieceType::NeRC: return u8"minecraft:nerc";
   case StructurePieceType::NeSR: return u8"minecraft:nesr";
   case StructurePieceType::NeStart: return u8"minecraft:nestart";
+
+  case StructurePieceType::ECP: return u8"ecp";
   default: return u8"INVALID";
   }
 }
@@ -494,6 +498,19 @@ std::unique_ptr<StructurePiece> StructurePiece::Parse(mcfile::stream::InputStrea
     }
     return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, data, entryDoor);
   }
+  case StructurePieceType::ECP: {
+    i32 tpx, tpy, tpz;
+    if (!reader.read(&tpx)) {
+      return nullptr;
+    }
+    if (!reader.read(&tpy)) {
+      return nullptr;
+    }
+    if (!reader.read(&tpz)) {
+      return nullptr;
+    }
+    return std::make_unique<EndCityPiece>(pieceBB, O, GD, id, data, tpx, tpy, tpz);
+  }
   }
 
   return std::make_unique<StructurePiece>(pieceBB, O, GD, id, data);
@@ -507,6 +524,12 @@ StrongholdPiece::StrongholdPiece(
   CompoundTagPtr data, i32 entryDoor
 ) : StructurePiece(bb, orientation, generationDepth, id, data),
   fEntryDoor(entryDoor) {}
+
+EndCityPiece::EndCityPiece(
+  Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
+  CompoundTagPtr data, i32 tpx, i32 tpy, i32 tpz
+) : StructurePiece(bb, orientation, generationDepth, id, data),
+  fTPX(tpx), fTPY(tpy), fTPZ(tpz) {}
 
 CompoundTagPtr StructurePiece::Convert() const {
   auto out = Compound();
@@ -576,6 +599,92 @@ CompoundTagPtr StrongholdPiece::Convert() const {
 
   out->set(u8"EntryDoor", String(entryDoors[std::clamp(fEntryDoor, 0, 3)]));
 
+  return out;
+}
+
+CompoundTagPtr EndCityPiece::Convert() const {
+  auto out = StructurePiece::Convert();
+
+  out->set(u8"TPX", Int(fTPX));
+  out->set(u8"TPY", Int(fTPY));
+  out->set(u8"TPZ", Int(fTPZ));
+
+  // LCE doesn't store Template, Rot, or OW but Java requires reading them
+  out->set(u8"OW", Bool(false)); // overwrite
+
+  struct TemplateInfo {
+    std::u8string_view name;
+    i32 width;
+    i32 height;
+    i32 depth;
+  };
+
+  // Guess the template and rotation from the sizes of each template
+  static constexpr TemplateInfo templates[] = {
+    {u8"base_floor",           10,  4, 10},
+    {u8"base_roof",            12,  2, 12},
+    {u8"bridge_end",            5,  6,  2},
+    {u8"bridge_gentle_stairs",  5,  7,  8},
+    {u8"bridge_piece",          5,  6,  4},
+    {u8"bridge_steep_stairs",   5,  7,  4},
+    {u8"fat_tower_base",       13,  4, 13},
+    {u8"fat_tower_middle",     13,  8, 13},
+    {u8"fat_tower_top",        17,  6, 17},
+    {u8"second_floor_1",       12,  8, 12},
+    {u8"second_floor_r",       12,  8, 12},
+    {u8"second_roof",          14,  2, 14},
+    {u8"ship",                 13, 24, 29},
+    {u8"third_floor_1",        14,  8, 14},
+    {u8"third_floor_2",        14,  8, 14},
+    {u8"third_roof",           16,  2, 16},
+    {u8"tower_base",            7,  7,  7},
+    {u8"tower_floor",           7,  4,  7},
+    {u8"tower_piece",           7,  4,  7},
+    {u8"tower_top",             9,  5,  9},
+  };
+
+  // Bounding box coordinates are inclusive block coordinates, add 1 for lengths
+  i32 bbWidth  = fBB.fEnd.fX - fBB.fStart.fX + 1;
+  i32 bbHeight = fBB.fEnd.fY - fBB.fStart.fY + 1;
+  i32 bbDepth  = fBB.fEnd.fZ - fBB.fStart.fZ + 1;
+
+  // offset caused by template rotation
+  i32 dx = fBB.fStart.fX - fTPX;
+  i32 dz = fBB.fStart.fZ - fTPZ;
+
+  struct Rotation {
+    std::u8string_view name;
+    i32 bbWidth;
+    i32 bbDepth;
+    i32 dx;
+    i32 dz;
+  };
+
+  // Check each rotation to see if StructureTemplate mapped the template to the given bounding box.
+  // LCE bounding boxes seem to be 1 longer on X/Z than template, add 1 here. It works, idk why.
+  for (auto const &t : templates) {
+    const Rotation rotations[] = {
+      {u8"NONE",                  t.width + 1, t.depth + 1,  0,       0},
+      {u8"CLOCKWISE_90",          t.depth + 1, t.width + 1, -t.depth, 0},
+      {u8"CLOCKWISE_180",         t.width + 1, t.depth + 1, -t.width, -t.depth},
+      {u8"COUNTERCLOCKWISE_90",   t.depth + 1, t.width + 1,  0,       -t.width},
+    };
+
+    for (const auto& rotation : rotations) {
+      if (bbWidth != rotation.bbWidth || bbHeight != t.height || bbDepth != rotation.bbDepth
+          || dx != rotation.dx || dz != rotation.dz
+      ) {
+          continue;
+      }
+
+      out->set(u8"Template", String(t.name));
+      out->set(u8"Rot", String(rotation.name));
+      return out;
+    }
+  }
+  std::cout << std::format( "Couldn't identify template/rotation {} {} {}, {} {}", bbWidth, bbHeight, bbDepth, dx, dz ) << std::endl;
+
+  // Couldn't identify the template/rotation, return the piece with TPX/TPY/TPZ.
   return out;
 }
 
