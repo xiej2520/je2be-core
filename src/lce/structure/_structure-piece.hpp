@@ -19,6 +19,20 @@ enum class StructurePieceType {
   Iglu, // igloo
   TeSH, // swamp hut
   TeDP, // desert pyramid
+  
+  SHCC,    // StrongholdChestCorridor
+  SHPR,    // StrongholdPortalRoom
+  SH5C,    // StrongholdFiveCrossing
+  SHLi,    // StrongholdLibrary
+  SHFC,    // StrongholdFillerCorridor
+  SHRC,    // StrongholdRoomCrossing
+  SHS,     // StrongholdStraight
+  SHStart, // StrongholdStartPiece
+  SHSD,    // StrongholdStairsDown
+  SHLT,    // StrongholdLeftTurn
+  SHPH,    // StrongholdPrisonHall
+  SHRT,    // StrongholdRightTurn
+  SHSSD,   // StrongholdStraightStairsDown
 
   NeBCr,   // BridgeCrossing
   NeBEF,   // BridgeEndFiller
@@ -61,6 +75,17 @@ struct TemplePiece : StructurePiece {
   i32 fHPos;  // y level of surface the structure was moved to, or -1 if not moved
   TemplePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, CompoundTagPtr data,
     i32 width, i32 height, i32 depth, i32 hPos
+  );
+
+  CompoundTagPtr Convert() const override;
+};
+
+struct StrongholdPiece : StructurePiece {
+  i32 fEntryDoor;
+
+  StrongholdPiece(
+    Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, CompoundTagPtr data,
+    i32 entryDoor
   );
 
   CompoundTagPtr Convert() const override;

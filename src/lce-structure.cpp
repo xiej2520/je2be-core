@@ -51,6 +51,20 @@ const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
   {u8"TeSH", StructurePieceType::TeSH},
   {u8"TeDP", StructurePieceType::TeDP},
 
+  {u8"SHCC",     StructurePieceType::SHCC},
+  {u8"SHPR",     StructurePieceType::SHPR},
+  {u8"SH5C",     StructurePieceType::SH5C},
+  {u8"SHLi",     StructurePieceType::SHLi},
+  {u8"SHFC",     StructurePieceType::SHFC},
+  {u8"SHRC",    StructurePieceType::SHRC},
+  {u8"SHS",     StructurePieceType::SHS},
+  {u8"SHStart", StructurePieceType::SHStart},
+  {u8"SHSD",    StructurePieceType::SHSD},
+  {u8"SHLT",    StructurePieceType::SHLT},
+  {u8"SHPH",    StructurePieceType::SHPH},
+  {u8"SHRT",    StructurePieceType::SHRT},
+  {u8"SHSSD",   StructurePieceType::SHSSD},
+
   {u8"NeBCr", StructurePieceType::NeBCr},
   {u8"NeBEF", StructurePieceType::NeBEF},
   {u8"NeBS", StructurePieceType::NeBS},
@@ -77,6 +91,20 @@ std::u8string_view PieceId(StructurePieceType piece) {
   case StructurePieceType::Iglu: return u8"minecraft:iglu";
   case StructurePieceType::TeSH: return u8"minecraft:tesh";
   case StructurePieceType::TeDP: return u8"minecraft:tedp";
+
+  case StructurePieceType::SHCC: return u8"minecraft:shcc";
+  case StructurePieceType::SHPR: return u8"minecraft:shpr";
+  case StructurePieceType::SH5C: return u8"minecraft:sh5c";
+  case StructurePieceType::SHLi: return u8"minecraft:shli";
+  case StructurePieceType::SHFC: return u8"minecraft:shfc";
+  case StructurePieceType::SHRC: return u8"minecraft:shrc";
+  case StructurePieceType::SHS: return u8"minecraft:shs";
+  case StructurePieceType::SHStart: return u8"minecraft:shstart";
+  case StructurePieceType::SHSD: return u8"minecraft:shsd";
+  case StructurePieceType::SHLT: return u8"minecraft:shlt";
+  case StructurePieceType::SHPH: return u8"minecraft:shph";
+  case StructurePieceType::SHRT: return u8"minecraft:shrt";
+  case StructurePieceType::SHSSD: return u8"minecraft:shssd";
 
   case StructurePieceType::NeBCr: return u8"minecraft:nebcr";
   case StructurePieceType::NeBEF: return u8"minecraft:nebef";
@@ -361,6 +389,111 @@ std::unique_ptr<StructurePiece> StructurePiece::Parse(mcfile::stream::InputStrea
   case StructurePieceType::NeSR:
   case StructurePieceType::NeStart:
     break;
+
+  case StructurePieceType::SHCC:
+  case StructurePieceType::SHPR:
+  case StructurePieceType::SH5C:
+  case StructurePieceType::SHLi:
+  case StructurePieceType::SHFC:
+  case StructurePieceType::SHRC:
+  case StructurePieceType::SHS:
+  case StructurePieceType::SHStart:
+  case StructurePieceType::SHSD:
+  case StructurePieceType::SHLT:
+  case StructurePieceType::SHPH:
+  case StructurePieceType::SHRT:
+  case StructurePieceType::SHSSD: {
+    i32 entryDoor;
+    if (!reader.read(&entryDoor)) {
+      return nullptr;
+    }
+
+    switch (id) {
+    case StructurePieceType::SHCC: { // StrongholdChestCorridor
+      u8 b;
+      if (!reader.read(&b)) {
+        return nullptr;
+      }
+      bool chest = static_cast<bool>(b);
+      data->set(u8"Chest", Bool(chest));
+      break;
+    }
+    case StructurePieceType::SHPR: { // StrongholdPortalRoom
+      u8 b;
+      if (!reader.read(&b)) {
+        return nullptr;
+      }
+      bool mob = static_cast<bool>(b);
+      data->set(u8"Mob", Bool(mob));
+      break;
+    }
+    case StructurePieceType::SH5C: {
+      // StrongholdFiveCrossing
+      u8 b[4];
+      for (int i = 0; i < 4; i++) {
+        if (!reader.read(&b[i])) {
+          return nullptr;
+        }
+      }
+      data->set(u8"leftLow", Bool(b[0]));
+      data->set(u8"leftHigh", Bool(b[1]));
+      data->set(u8"rightLow", Bool(b[2]));
+      data->set(u8"rightHigh", Bool(b[3]));
+      break;
+    }
+    case StructurePieceType::SHLi: { // StrongholdLibrary
+      u8 b;
+      if (!reader.read(&b)) {
+        return nullptr;
+      }
+      bool tall = static_cast<bool>(b);
+      data->set(u8"Tall", Bool(tall));
+      break;
+    }
+    case StructurePieceType::SHFC: { // StrongholdFillerCorridor
+      i32 steps;
+      if (!reader.read(&steps)) {
+        return nullptr;
+      }
+      data->set(u8"Steps", Int(steps));
+      break;
+    }
+    case StructurePieceType::SHRC: { // StrongholdRoomCrossing
+      i32 type;
+      if (!reader.read(&type)) {
+        return nullptr;
+      }
+      data->set(u8"Type", Int(type));
+      break;
+    }
+    case StructurePieceType::SHStart: // StrongholdStartPiece
+      // fallthrough
+    case StructurePieceType::SHSD: { // StrongholdStairsDown
+      u8 b;
+      if (!reader.read(&b)) {
+        return nullptr;
+      }
+      bool source = static_cast<bool>(b);
+      data->set(u8"Source", Bool(source));
+      break;
+    }
+    case StructurePieceType::SHS: { // StrongholdStraight
+      u8 b;
+      bool left, right;
+      if (!reader.read(&b)) {
+        return nullptr;
+      }
+      data->set(u8"Left", Bool(static_cast<bool>(b)));
+      if (!reader.read(&b)) {
+        return nullptr;
+      }
+      data->set(u8"Right", Bool(static_cast<bool>(b)));
+      break;
+    }
+    default: break;
+    }
+    return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, data, entryDoor);
+  }
   }
 
   return std::make_unique<StructurePiece>(pieceBB, O, GD, id, data);
@@ -368,6 +501,12 @@ std::unique_ptr<StructurePiece> StructurePiece::Parse(mcfile::stream::InputStrea
 
 TemplePiece::TemplePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, CompoundTagPtr data, i32 width, i32 height, i32 depth, i32 hPos)
   : StructurePiece(bb, orientation, generationDepth, id, data), fWidth{width}, fHeight{height}, fDepth{depth}, fHPos{hPos} {}
+
+StrongholdPiece::StrongholdPiece(
+  Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
+  CompoundTagPtr data, i32 entryDoor
+) : StructurePiece(bb, orientation, generationDepth, id, data),
+  fEntryDoor(entryDoor) {}
 
 CompoundTagPtr StructurePiece::Convert() const {
   auto out = Compound();
@@ -422,6 +561,21 @@ CompoundTagPtr TemplePiece::Convert() const {
   default:
     break;
   }
+  return out;
+}
+
+CompoundTagPtr StrongholdPiece::Convert() const {
+  auto out = StructurePiece::Convert();
+
+  constexpr std::array<std::u8string_view, 4> entryDoors = {
+    u8"OPENING",
+    u8"WOOD_DOOR",
+    u8"GRATES",
+    u8"IRON_DOOR",
+  };
+
+  out->set(u8"EntryDoor", String(entryDoors[std::clamp(fEntryDoor, 0, 3)]));
+
   return out;
 }
 
