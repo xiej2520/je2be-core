@@ -46,6 +46,8 @@ std::u8string NamespaceFeatureName(StructureType type) {
 const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
   {u8"OMB", StructurePieceType::OMB},
 
+  {u8"BTP", StructurePieceType::BTP},
+
   {u8"TeJP", StructurePieceType::TeJP},
   {u8"Iglu", StructurePieceType::Iglu},
   {u8"TeSH", StructurePieceType::TeSH},
@@ -88,6 +90,8 @@ const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
 std::u8string_view PieceId(StructurePieceType piece) {
   switch (piece) {
   case StructurePieceType::OMB: return u8"minecraft:omb";
+
+  case StructurePieceType::BTP: return u8"minecraft:btp";
 
   case StructurePieceType::TeJP: return u8"minecraft:tejp";
   case StructurePieceType::Iglu: return u8"minecraft:iglu";
@@ -210,6 +214,14 @@ std::optional<Structure> Structure::Parse(std::span<const u8> bytes, StructureTy
     case StructurePieceType::Iglu: type = StructureType::Igloo; break;
     case StructurePieceType::TeSH: type = StructureType::SwampHut; break;
     case StructurePieceType::TeDP: type = StructureType::DesertPyramid; break;
+    case StructurePieceType::BTP: {
+      // Buried Treasure bounding box seems to be broken (not 1 block, misaligned)
+      // set it to one block here?
+      //Volume block {pieces[0]->fBB.fStart, pieces[0]->fBB.fStart};
+      //bb = block;
+      //pieces[0]->fBB = block;
+      break;
+    }
     default:
       break;
     }
@@ -313,11 +325,17 @@ std::unique_ptr<StructurePiece> StructurePiece::Parse(mcfile::stream::InputStrea
 
   StructurePieceType id;
 
-  auto it = sPieceType.find(pieceId);
-  if (it == sPieceType.end()) {
-    return nullptr;
+  if (type == StructureType::BuriedTreasure) {
+    // Buried Treasure.dat stores these with 0-length ids
+    id = StructurePieceType::BTP;
+  } else {
+    auto it = sPieceType.find(pieceId);
+    if (it == sPieceType.end()) {
+      return nullptr;
+    }
+      id = it->second;
   }
-  id = it->second;
+
   if (id == StructurePieceType::TeJP || id == StructurePieceType::Iglu
     || id == StructurePieceType::TeSH || id == StructurePieceType::TeDP) {
     // common ScatteredFeaturePiece fields
@@ -351,6 +369,7 @@ std::unique_ptr<StructurePiece> StructurePiece::Parse(mcfile::stream::InputStrea
 
   switch (id) {
   case StructurePieceType::OMB: break;
+  case StructurePieceType::BTP: break;
   case StructurePieceType::TeJP: break;
   case StructurePieceType::Iglu: break;
   case StructurePieceType::TeSH: break;

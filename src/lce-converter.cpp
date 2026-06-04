@@ -645,10 +645,15 @@ private:
       static const std::unordered_map<std::u8string, std::pair<mcfile::Dimension, StructureType>> structureFiles = {
         {u8"Monument.dat", {mcfile::Dimension::Overworld, StructureType::OceanMonument}},
         {u8"StrongHold.dat", {mcfile::Dimension::Overworld, StructureType::Stronghold}},
+        {u8"Buried Treasure.dat", {mcfile::Dimension::Overworld, StructureType::BuriedTreasure}},
         // default Temple to SwampHut, parse from piece
         {u8"Temple.dat", {mcfile::Dimension::Overworld, StructureType::SwampHut}},
         {u8"Fortress.dat", {mcfile::Dimension::Nether, StructureType::Fortress}},
         {u8"EndCity.dat", {mcfile::Dimension::End, StructureType::EndCity}},
+        // TODO Mansion, Mineshaft, Ocean Ruin, Shipwreck
+        // Java 1.12 Village.dat was converted to 1.13 chunk structure starts, but 1.14 introduced
+        // New_Village, and then eventually deleted the old Village structures and renamed
+        // New_Village -> Village (v1920 `NewVillageFix`)
       };
       auto sIt = structureFiles.find(fileNameString);
       if (sIt != structureFiles.end()) {

@@ -14,6 +14,7 @@ enum class StructureType;
 
 enum class StructurePieceType {
   OMB, // OceanMonumentBuilding is the only piece saved in Java 1.12.2 and LCE
+  BTP, // BuriedTreasurePiece
 
   TeJP, // jungle pyramid
   Iglu, // igloo
