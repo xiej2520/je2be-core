@@ -1161,6 +1161,12 @@ private:
     }
     if (!structuresTag->empty()) {
       chunk.fStructures = structuresTag;
+      if (!startsTag->empty()) {
+        std::cout << std::format(
+            "Wrote structures tag to {}, {}: {}\n",
+            cx, cz, structuresTag->toSnbt({})
+        );
+      }
     }
   }
 

@@ -201,6 +201,7 @@ std::optional<Structure> Structure::Parse(std::span<const u8> bytes, StructureTy
   for (size_t i = 0; i < childrenLen; i++) {
     auto piece = StructurePiece::Parse(reader, type);
     if (!piece) {
+      std::cout << "error extracting structure piece in " << std::string(id.begin(), id.end()) << std::endl;
       // invalid piece, stop
       break;
     }

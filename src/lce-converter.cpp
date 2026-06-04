@@ -42,11 +42,13 @@ public:
 
     auto tempRoot = options.getTempDirectory();
     auto temp = mcfile::File::CreateTempDir(tempRoot);
+    temp = std::optional(std::filesystem::path("scratch") / "ps3extract");
+    cout << temp.value() << endl;
     if (!temp) {
       return JE2BE_ERROR;
     }
     defer {
-      Fs::DeleteAll(*temp);
+      //Fs::DeleteAll(*temp);
     };
 
     if (!Savegame::ExtractFilesFromDecompressedSavegame(inputSavegame, *temp)) {
