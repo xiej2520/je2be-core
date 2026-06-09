@@ -591,6 +591,7 @@ if (MSVC)
   endif()
 endif()
 
-list(APPEND all_files ${test_files} ${je2be_header_files} ${je2be_src_files} example/j2b.cpp example/b2j.cpp example/lce-progress.hpp example/x2j.cpp example/p2j.cpp example/dump.cpp test/j2b2j.cpp)
+#list(APPEND all_files ${test_files} ${je2be_header_files} ${je2be_src_files} example/j2b.cpp example/b2j.cpp example/lce-progress.hpp example/x2j.cpp example/p2j.cpp example/dump.cpp test/j2b2j.cpp)
+list(APPEND all_files ${test_files} ${je2be_header_files} ${je2be_src_files} example/p2j.cpp)
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} FILES ${all_files})
 source_group(TREE ${libminecraft-file_SOURCE_DIR} PREFIX deps/mcfile FILES ${mcfile_header_files})

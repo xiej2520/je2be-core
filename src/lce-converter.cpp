@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <je2be/lce/converter.hpp>
 
 #include <je2be/fs.hpp>
@@ -41,7 +42,7 @@ public:
 
     auto tempRoot = options.getTempDirectory();
     auto temp = mcfile::File::CreateTempDir(tempRoot);
-    temp = std::optional(std::filesystem::path("ps3out"));
+    temp = std::optional(std::filesystem::path("scratch") / "ps3extract");
     cout << temp.value() << endl;
     if (!temp) {
       return JE2BE_ERROR;
@@ -627,8 +628,47 @@ private:
     return Status::Ok();
   }
 
-  static Status LoadStructures(std::filesystem::path const &inputFile, Context const &ctx) {
+  static Status LoadStructures(std::filesystem::path const &inputDirectory, Context const &ctx) {
     using namespace std;
+
+    namespace fs = std::filesystem;
+
+    auto dataFrom = inputDirectory / "data";
+    if (!Fs::Exists(dataFrom)) {
+      return Status::Ok();
+    }
+
+    for (DirectoryIterator it(dataFrom); it.valid(); it.next()) {
+      if (!it->is_regular_file()) {
+        continue;
+      }
+      auto fileNameString = it->path().filename().u8string();
+      
+      if (fileNameString == u8"Fortress.dat") {
+        auto inStream = make_shared<mcfile::stream::GzFileInputStream>(it->path());
+        auto inRoot = CompoundTag::Read(inStream, mcfile::Encoding::Java);
+        inStream.reset();
+        if (inRoot) {
+          ctx.fStructures.decodeFortress(*inRoot);
+        }
+      } else if (fileNameString == u8"Monument.dat") {
+        auto inStream = make_shared<mcfile::stream::GzFileInputStream>(it->path());
+        auto inRoot = CompoundTag::Read(inStream, mcfile::Encoding::Java);
+        inStream.reset();
+        if (inRoot) {
+          ctx.fStructures.decodeMonument(*inRoot);
+        }
+      } else if (fileNameString == u8"Temple.dat") {
+        auto inStream = make_shared<mcfile::stream::GzFileInputStream>(it->path());
+        auto inRoot = CompoundTag::Read(inStream, mcfile::Encoding::Java);
+        inStream.reset();
+        if (inRoot) {
+          ctx.fStructures.decodeTemple(*inRoot);
+        }
+      }
+      // TODO Buried Treasure, EndCity, Mansion, Mineshaft, Ocean Ruin, StrongHold, Village
+    }
+    abort();
     
     auto m = Structures{};
     return Status::Ok();

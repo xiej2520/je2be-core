@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-cmake -S . -B Build
+#cmake -S . -B Build
 cmake --build Build -j 16
 # vscode:
 #
