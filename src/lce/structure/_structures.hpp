@@ -15,9 +15,9 @@
 namespace je2be::lce {
 
 // Reference 1.16.5 LegacyStructureDataHandler, 26.1+ LegacyStructureFileFix
-class Structures {
+class LegacyStructures {
 public:
-  void add(StructureStart p, Pos2i startChunk, mcfile::Dimension dim) {
+  void add(StructureFeature p, Pos2i startChunk, mcfile::Dimension dim) {
     switch (dim) {
     case mcfile::Dimension::Overworld:
       fOverworld.push_back(p);
@@ -31,10 +31,8 @@ public:
     }
   }
 
-  std::vector<StructureStart> nearbyStarts(mcfile::Dimension d, Pos2i chunk) const {
-    std::vector<StructureStart> out;
-    Volume chunkVolume(Pos3i(chunk.fX * 16, -64, chunk.fZ * 16), Pos3i(chunk.fX * 16 + 15, 319, chunk.fZ * 16 + 15));
-    const std::vector<StructureStart> *structures;
+  std::vector<StructureFeature> nearbyStarts(mcfile::Dimension d, Pos2i chunk) const {
+    const std::vector<StructureFeature> *structures;
     switch (d) {
     case mcfile::Dimension::Overworld:
       structures = &fOverworld;
@@ -46,8 +44,11 @@ public:
       structures = &fEnd;
       break;
     }
+
+    std::vector<StructureFeature> out;
     for (auto s : *structures) {
-      if (Volume::Intersection(s.fVolume, chunkVolume)) {
+      // Vanilla LegacyStructureDataHandler: if chunk is within 8 of structure start (inclusive), add reference
+      if (std::abs(chunk.fX - s.fChunkX) <= 8 && std::abs(chunk.fZ - s.fChunkZ) <= 8) {
         out.push_back(s);
       }
     }
@@ -56,27 +57,27 @@ public:
   
   void decodeFortress(CompoundTag const &in) {
     auto data = in.compoundTag(u8"data");
-    std::cout << "fortress data" << data << std::endl;
+    //std::cout << "fortress data" << data->toSnbt({}) << std::endl;
     if (!data) {
       return;
     }
     auto features = data->compoundTag(u8"Features");
-    std::cout << "FORTRESS FEATURES " << features << std::endl;
+    //std::cout << "FORTRESS FEATURES " << features->toSnbt({}) << std::endl;
   }
 
   void decodeMonument(CompoundTag const &in) {
     auto data = in.compoundTag(u8"data");
-    std::cout << "monument data" << data << std::endl;
+    //std::cout << "monument data" << data->toSnbt({}) << std::endl;
     if (!data) {
       return;
     }
     auto features = data->compoundTag(u8"Features");
-    std::cout << "MONUMENT FEATURES " << features << std::endl;
+    //std::cout << "MONUMENT FEATURES " << features << std::endl;
   }
 
   void decodeTemple(CompoundTag const &in) {
     auto data = in.compoundTag(u8"data");
-    std::cout << "temple data" << data << std::endl;
+    //std::cout << "temple data" << data->toSnbt({}) << std::endl;
     if (!data) {
       return;
     }
@@ -108,7 +109,7 @@ public:
       i32 chunkZ = readI32BE(bytes, off);
       off += 4;
 
-      std::array<i32, 6> bb = readBB(bytes, off);
+      std::array<i32, 6> featureBB = readBB(bytes, off);
       off += sizeof(i32) * 6;
       
       i32 childrenLen = readI32BE(bytes, off);
@@ -121,7 +122,7 @@ public:
         off += idLen;
 
         if (id == u8"TeSH") { // swamp hut (witch hut)
-          std::array<i32, 6> bb = readBB(bytes, off);
+          std::array<i32, 6> pieceBB = readBB(bytes, off);
           off += sizeof(i32) * 6;
           
           int O = readI32BE(bytes, off); // orientation
@@ -141,10 +142,10 @@ public:
           off += 4;
 
           // bool Witch; // assume Witch has been spawned, don't know which byte this is
-          StructureStart start{
+          StructureFeature start{
             StructureType::SwampHut, chunkX, chunkZ,
-            Volume{Pos3i{bb[0], bb[1], bb[2]}, Pos3i{bb[3], bb[4], bb[5]}},
-            {StructurePiece{O, GD, Width, Height, Depth, HPos}}
+            Volume{Pos3i{featureBB[0], featureBB[1], featureBB[2]}, Pos3i{featureBB[3], featureBB[4], featureBB[5]}},
+            {StructurePiece{Volume{Pos3i{pieceBB[0], pieceBB[1], pieceBB[2]}, Pos3i{pieceBB[3], pieceBB[4], pieceBB[5]}}, O, GD, Width, Height, Depth, HPos}}
           };
           std::cout << start << std::endl;
 
@@ -179,17 +180,20 @@ public:
       }
       std::cout << std::endl;
     }
-    std::cout << "TEMPLE FEATURES " << features << std::endl;
+    //std::cout << "TEMPLE FEATURES " << features->toSnbt({}) << std::endl;
+  }
+
+  static i64 PackStructureStartsReference(i32 cx, i32 cz) {
+    i64 r;
+    *(i32 *)&r = cx;
+    *((i32 *)&r + 1) = cz;
+    return r;
   }
 
 private:
-  std::vector<StructureStart> fOverworld;
-  std::vector<StructureStart> fNether;
-  std::vector<StructureStart> fEnd;
-  //StructurePieceCollection fOverworld;
-  //StructurePieceCollection fNether;
-  //StructurePieceCollection fEnd;
-
+  std::vector<StructureFeature> fOverworld;
+  std::vector<StructureFeature> fNether;
+  std::vector<StructureFeature> fEnd;
 
   static std::optional<std::pair<i32, i32>> ParseChunkCoords(std::u8string_view key) {
     if (!key.starts_with(u8"[") || !key.ends_with(u8"]")) {

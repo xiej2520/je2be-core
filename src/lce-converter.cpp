@@ -668,9 +668,7 @@ private:
       }
       // TODO Buried Treasure, EndCity, Mansion, Mineshaft, Ocean Ruin, StrongHold, Village
     }
-    abort();
     
-    auto m = Structures{};
     return Status::Ok();
   }
 };

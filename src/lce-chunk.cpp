@@ -16,8 +16,11 @@
 #include "lce/_savegame.hpp"
 #include "lce/_tile-entity.hpp"
 #include "lce/structure/_structure-piece.hpp"
+#include "mcfile/dimension.hpp"
+#include "mcfile/je/writable-chunk.hpp"
 
 #include <bitset>
+#include <memory>
 #include <mutex>
 #include <variant>
 
@@ -1078,27 +1081,8 @@ private:
     if (auto e = tag->listTag(u8"Entities"); e) {
       ParseEntities(*e, *chunk, ctx);
     }
-    
-    auto structures = ctx.fStructures.nearbyStarts(dimension, Pos2i{cx, cz});
-    for (auto const &s : structures) {
-      if (s.fChunkX == cx && s.fChunkZ == cz) {
-        switch (s.fType) {
-        case StructureType::Fortress:
-        case StructureType::Monument:
-        case StructureType::Outpost:
-        case StructureType::SwampHut:
-          break;
-        }
-      } else {
-        switch (s.fType) {
-        case StructureType::Fortress:
-        case StructureType::Monument:
-        case StructureType::Outpost:
-        case StructureType::SwampHut:
-          break;
-        }
-      }
-    }
+
+    ParseStructures(dimension, *chunk, ctx);
 
     result.swap(chunk);
 
@@ -1141,6 +1125,80 @@ private:
         continue;
       }
       chunk.fEntities.push_back(converted->fEntity);
+    }
+  }
+
+  static void ParseStructures(mcfile::Dimension dimension, mcfile::je::WritableChunk chunk, Context const &ctx) {
+    const auto cx = chunk.fChunkX;
+    const auto cz = chunk.fChunkZ;
+
+    auto structuresTag = Compound();
+    auto startsTag = Compound();
+    auto referencesTag = Compound();
+    
+    std::unordered_map<std::u8string, std::shared_ptr<CompoundTag>> starts;
+    std::unordered_map<std::u8string, std::vector<i64>> references;
+
+    auto structures = ctx.fStructures.nearbyStarts(dimension, Pos2i{cx, cz});
+    for (auto const &s : structures) {
+      if (s.fChunkX == cx && s.fChunkZ == cz) { // structure start
+        // there can only be one per chunk
+        switch (s.fType) {
+        case StructureType::Fortress:
+          break;
+        case StructureType::Monument:
+          break;
+        case StructureType::Outpost:
+          break;
+        case StructureType::SwampHut: {
+          starts[u8"minecraft:swamp_hut"] = s.Convert();
+          break;
+        }
+        }
+      } else { // structure reference
+        switch (s.fType) {
+        case StructureType::Fortress: {
+          //auto references = referencesTag->get<LongArrayTag>(u8"minecraft:fortress");
+          //references->push_back(Structures::PackStructureStartsReference(s.fChunkX, s.fChunkZ));
+          //referencesTag->set(u8"minecraft:fortress", references);
+          break;
+        }
+        case StructureType::Monument: {
+          //auto references = referencesTag->get<LongArrayTag>(u8"minecraft:monument");
+          //references->push_back(Structures::PackStructureStartsReference(s.fChunkX, s.fChunkZ));
+          //referencesTag->set(u8"minecraft:monument", references);
+          break;
+        }
+        case StructureType::Outpost:
+        case StructureType::SwampHut: {
+          references[u8"minecraft:swamp_hut"].push_back(LegacyStructures::PackStructureStartsReference(s.fChunkX, s.fChunkZ));
+          break;
+        }
+        }
+      }
+    }
+
+    for (const auto &[structureKey, structureStart] : starts) {
+      startsTag->set(structureKey, structureStart);
+    }
+    
+    for (auto &[structureKey, structureReferences] : references) {
+      referencesTag->set(structureKey, std::make_shared<LongArrayTag>(structureReferences));
+    }
+    
+    if (!startsTag->empty()) {
+      // "starts" in 1.18
+      structuresTag->set(u8"Starts", startsTag);
+    }
+    if (!referencesTag->empty()) {
+      structuresTag->set(u8"References", referencesTag);
+    }
+    if (!structuresTag->empty()) {
+      chunk.fStructures = structuresTag;
+      std::cout << std::format(
+          "Wrote structures tag to {}, {}: {}\n",
+          cx, cz, structuresTag->toSnbt({})
+      );
     }
   }
 

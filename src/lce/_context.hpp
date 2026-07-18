@@ -22,7 +22,7 @@ public:
   EntityNameMigrator const fEntityNameMigrator;
   std::unordered_map<std::u8string, Uuid> fPlayers;
   bool fNewSeaLevel;
-  Structures fStructures;
+  LegacyStructures fStructures;
 };
 
 } // namespace je2be::lce

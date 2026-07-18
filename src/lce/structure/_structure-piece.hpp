@@ -4,36 +4,46 @@
 #include <je2be/pos2.hpp>
 #include <vector>
 #include "_volume.hpp"
+#include "je2be/nbt.hpp"
 
 namespace je2be::lce {
 
 enum class StructureType : u8 {
-  Fortress = 1,
-  Monument = 3,
-  Outpost = 5,
+  Fortress,
+  Monument,
+  Outpost,
   SwampHut,
 };
 
 struct StructurePiece {
+  Volume fBB;
   i32 fOrientation;
   i32 fGenerationDepth;
   i32 fWidth;
   i32 fHeight;
   i32 fDepth;
   i32 fHPos;
-  StructurePiece(i32 orientation, i32 generationDepth, i32 width, i32 height, i32 depth, i32 hPos) :
-    fOrientation{orientation}, fGenerationDepth{generationDepth}, fWidth{width}, fHeight{height}, fDepth{depth}, fHPos{hPos} {}
+  StructurePiece(Volume bb, i32 orientation, i32 generationDepth, i32 width, i32 height, i32 depth, i32 hPos) :
+    fBB(bb), fOrientation{orientation}, fGenerationDepth{generationDepth}, fWidth{width}, fHeight{height}, fDepth{depth}, fHPos{hPos} {}
+
+  class Impl;
+  
+  CompoundTagPtr Convert(StructureType type) const;
 };
 
-struct StructureStart {
+struct StructureFeature {
   i32 fChunkX;
   i32 fChunkZ;
-  Volume fVolume;
+  Volume fBoundingBox;
   StructureType fType;
   std::vector<StructurePiece> fPieces;
 
-  StructureStart(StructureType type, i32 chunkX, i32 chunkZ, Volume bb, std::vector<StructurePiece> pieces = {})
-  : fType{type}, fChunkX{chunkX}, fChunkZ{chunkZ}, fVolume{std::move(bb)}, fPieces{std::move(pieces)} {}
+  StructureFeature(StructureType type, i32 chunkX, i32 chunkZ, Volume bb, std::vector<StructurePiece> pieces = {})
+  : fType{type}, fChunkX{chunkX}, fChunkZ{chunkZ}, fBoundingBox{std::move(bb)}, fPieces{std::move(pieces)} {}
+  
+  class Impl;
+  
+  CompoundTagPtr Convert() const;
 };
 
 #include <iostream>
@@ -46,7 +56,8 @@ inline std::ostream& operator<<(std::ostream& os, const je2be::Volume& v) {
 }
 inline std::ostream& operator<<(std::ostream& os, const je2be::lce::StructurePiece& p) {
     os << "StructurePiece("
-       << "orientation=" << p.fOrientation
+       << "volume=" << p.fBB
+       << ", orientation=" << p.fOrientation
        << ", generationDepth=" << p.fGenerationDepth
        << ", width=" << p.fWidth
        << ", height=" << p.fHeight
@@ -66,11 +77,11 @@ inline std::ostream& operator<<(std::ostream& os, je2be::lce::StructureType type
     default: return os << "Unknown(" << static_cast<int>(type) << ")";
     }
 }
-inline std::ostream& operator<<(std::ostream& os, const je2be::lce::StructureStart& s) {
+inline std::ostream& operator<<(std::ostream& os, const je2be::lce::StructureFeature& s) {
     os << "StructureStart {\n";
     os << "  type: " << s.fType << "\n";
     os << "  chunk: (" << s.fChunkX << ", " << s.fChunkZ << ")\n";
-    os << "  volume: " << s.fVolume << "\n";
+    os << "  volume: " << s.fBoundingBox << "\n";
     os << "  pieces:\n";
 
     for (const auto& piece : s.fPieces) {
