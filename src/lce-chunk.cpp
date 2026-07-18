@@ -1128,7 +1128,7 @@ private:
     }
   }
 
-  static void ParseStructures(mcfile::Dimension dimension, mcfile::je::WritableChunk chunk, Context const &ctx) {
+  static void ParseStructures(mcfile::Dimension dimension, mcfile::je::WritableChunk &chunk, Context const &ctx) {
     const auto cx = chunk.fChunkX;
     const auto cz = chunk.fChunkZ;
 
