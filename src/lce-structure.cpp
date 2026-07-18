@@ -52,17 +52,21 @@ CompoundTagPtr StructureFeature::Convert() const {
     case StructureType::SwampHut: {
       out->set(u8"ChunkX", Int(fChunkX));
       out->set(u8"ChunkZ", Int(fChunkZ));
-      out->set(u8"id", String(u8"minecraft:swamp_hut"));
+      // no "minecraft:" prefix in 1.13-1.17
+      //out->set(u8"id", String(u8"minecraft:swamp_hut"));
+      out->set(u8"id", String(u8"swamp_hut"));
       //out->set(u8"references", Int(0)); // not sure what this is used for
 
       auto start = fBoundingBox.fStart;
       auto end = fBoundingBox.fEnd;
-      std::vector<i32> bbv{start.fX, start.fY, start.fZ, end.fX, end.fY, end.fZ};
-      out->set(u8"BB", make_shared<IntArrayTag>(bbv));
+      std::vector<i32> boundingBox{start.fX, start.fY, start.fZ, end.fX, end.fY, end.fZ};
+      out->set(u8"BB", make_shared<IntArrayTag>(boundingBox));
+      // note: witch hut bounding box is 7x7x9 in 1.8.1+
+      // LCE usually has correct size, sometimes broken 8x7x10 boxes idk?
       
       auto children = List<Tag::Type::Compound>();
-      for (auto piece : *children) {
-        
+      for (auto piece : fPieces) {
+        children->push_back(piece.Convert(fType));
       }
       out->set(u8"Children", children);
 
@@ -83,8 +87,10 @@ CompoundTagPtr StructurePiece::Convert(StructureType type) const {
   auto out = Compound();
   auto start = fBB.fStart;
   auto end = fBB.fEnd;
-  std::vector<i32> bbv{start.fX, start.fY, start.fZ, end.fX, end.fY, end.fZ};
-  out->set(u8"BB", make_shared<IntArrayTag>(bbv));
+  // sometimes child bounding box can be outside structure bounding box (e.g. witch huts),
+  // fixed at some point between Java 1.13 and 1.15
+  std::vector<i32> boundingBox{start.fX, start.fY, start.fZ, end.fX, end.fY, end.fZ};
+  out->set(u8"BB", make_shared<IntArrayTag>(boundingBox));
   out->set(u8"GD", Int(fGenerationDepth));
   out->set(u8"O", Int(fOrientation));
   out->set(u8"Width", Int(fWidth));
@@ -104,6 +110,8 @@ CompoundTagPtr StructurePiece::Convert(StructureType type) const {
     out->set(u8"id", String(u8"minecraft:tesh"));
     // TODO: decode bool from save data
     out->set(u8"Witch", Bool(true));
+    // no cats in LCE
+    out->set(u8"Cat", Bool(false));
     break;
   }
   /*

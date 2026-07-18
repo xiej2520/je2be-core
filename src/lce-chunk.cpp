@@ -1141,7 +1141,8 @@ private:
 
     auto structures = ctx.fStructures.nearbyStarts(dimension, Pos2i{cx, cz});
     for (auto const &s : structures) {
-      if (s.fChunkX == cx && s.fChunkZ == cz) { // structure start
+      // structure start
+      if (s.fChunkX == cx && s.fChunkZ == cz) {
         // there can only be one per chunk
         switch (s.fType) {
         case StructureType::Fortress:
@@ -1151,30 +1152,31 @@ private:
         case StructureType::Outpost:
           break;
         case StructureType::SwampHut: {
-          starts[u8"minecraft:swamp_hut"] = s.Convert();
+          // no "minecraft:" prefix in 1.13-1.17
+          //starts[u8"minecraft:swamp_hut"] = s.Convert();
+          starts[u8"swamp_hut"] = s.Convert();
           break;
         }
         }
-      } else { // structure reference
-        switch (s.fType) {
-        case StructureType::Fortress: {
-          //auto references = referencesTag->get<LongArrayTag>(u8"minecraft:fortress");
-          //references->push_back(Structures::PackStructureStartsReference(s.fChunkX, s.fChunkZ));
-          //referencesTag->set(u8"minecraft:fortress", references);
-          break;
-        }
-        case StructureType::Monument: {
-          //auto references = referencesTag->get<LongArrayTag>(u8"minecraft:monument");
-          //references->push_back(Structures::PackStructureStartsReference(s.fChunkX, s.fChunkZ));
-          //referencesTag->set(u8"minecraft:monument", references);
-          break;
-        }
-        case StructureType::Outpost:
-        case StructureType::SwampHut: {
-          references[u8"minecraft:swamp_hut"].push_back(LegacyStructures::PackStructureStartsReference(s.fChunkX, s.fChunkZ));
-          break;
-        }
-        }
+      }
+
+      // structure reference
+      switch (s.fType) {
+      case StructureType::Fortress: {
+        //auto references = referencesTag->get<LongArrayTag>(u8"minecraft:fortress");
+        break;
+      }
+      case StructureType::Monument: {
+        //auto references = referencesTag->get<LongArrayTag>(u8"minecraft:monument");
+        break;
+      }
+      case StructureType::Outpost:
+      case StructureType::SwampHut: {
+        // no "minecraft:" prefix in 1.13-1.17
+        //references[u8"minecraft:swamp_hut"].push_back(LegacyStructures::PackStructureStartsReference(s.fChunkX, s.fChunkZ));
+        references[u8"swamp_hut"].push_back(LegacyStructures::PackStructureStartsReference(s.fChunkX, s.fChunkZ));
+        break;
+      }
       }
     }
 
