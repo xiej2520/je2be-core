@@ -1,3 +1,4 @@
+#include "je2be/pos2.hpp"
 #include "lce/_chunk.hpp"
 
 #include <je2be/lce/behavior.hpp>
@@ -14,6 +15,7 @@
 #include "lce/_grid.hpp"
 #include "lce/_savegame.hpp"
 #include "lce/_tile-entity.hpp"
+#include "lce/structure/_structure-piece.hpp"
 
 #include <bitset>
 #include <mutex>
@@ -1075,6 +1077,27 @@ private:
     }
     if (auto e = tag->listTag(u8"Entities"); e) {
       ParseEntities(*e, *chunk, ctx);
+    }
+    
+    auto structures = ctx.fStructures.nearbyStarts(dimension, Pos2i{cx, cz});
+    for (auto const &s : structures) {
+      if (s.fChunkX == cx && s.fChunkZ == cz) {
+        switch (s.fType) {
+        case StructureType::Fortress:
+        case StructureType::Monument:
+        case StructureType::Outpost:
+        case StructureType::SwampHut:
+          break;
+        }
+      } else {
+        switch (s.fType) {
+        case StructureType::Fortress:
+        case StructureType::Monument:
+        case StructureType::Outpost:
+        case StructureType::SwampHut:
+          break;
+        }
+      }
     }
 
     result.swap(chunk);

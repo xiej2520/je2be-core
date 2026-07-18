@@ -14,28 +14,44 @@
 
 namespace je2be::lce {
 
+// Reference 1.16.5 LegacyStructureDataHandler, 26.1+ LegacyStructureFileFix
 class Structures {
 public:
-  struct Structure {
-    StructureType fType;
-    Volume fBounds;
-    Pos2i fStartChunk;
-
-    Structure(StructureType type, Volume bounds, Pos2i startChunk) : fType(type), fBounds(bounds), fStartChunk(startChunk) {}
-  };
-
-  void add(StructurePiece p, mcfile::Dimension dim) {
+  void add(StructureStart p, Pos2i startChunk, mcfile::Dimension dim) {
     switch (dim) {
     case mcfile::Dimension::Overworld:
-      fOverworld[{0, 0}].push_back(p);
+      fOverworld.push_back(p);
       break;
     case mcfile::Dimension::Nether:
-      fNether[{0, 0}].push_back(p);
+      fNether.push_back(p);
       break;
     case mcfile::Dimension::End:
-      fEnd[{0, 0}].push_back(p);
+      fEnd.push_back(p);
       break;
     }
+  }
+
+  std::vector<StructureStart> nearbyStarts(mcfile::Dimension d, Pos2i chunk) const {
+    std::vector<StructureStart> out;
+    Volume chunkVolume(Pos3i(chunk.fX * 16, -64, chunk.fZ * 16), Pos3i(chunk.fX * 16 + 15, 319, chunk.fZ * 16 + 15));
+    const std::vector<StructureStart> *structures;
+    switch (d) {
+    case mcfile::Dimension::Overworld:
+      structures = &fOverworld;
+    break;
+    case mcfile::Dimension::Nether:
+      structures = &fNether;
+    break;
+    case mcfile::Dimension::End:
+      structures = &fEnd;
+      break;
+    }
+    for (auto s : *structures) {
+      if (Volume::Intersection(s.fVolume, chunkVolume)) {
+        out.push_back(s);
+      }
+    }
+    return out;
   }
   
   void decodeFortress(CompoundTag const &in) {
@@ -125,11 +141,16 @@ public:
           off += 4;
 
           // bool Witch; // assume Witch has been spawned, don't know which byte this is
-          StructurePiece sp{chunkX, chunkZ, Volume{Pos3i{bb[0], bb[1], bb[2]}, Pos3i{bb[3], bb[4], bb[5]}}, O, GD, Width, Height, Depth, HPos};
+          StructureStart start{
+            StructureType::SwampHut, chunkX, chunkZ,
+            Volume{Pos3i{bb[0], bb[1], bb[2]}, Pos3i{bb[3], bb[4], bb[5]}},
+            {StructurePiece{O, GD, Width, Height, Depth, HPos}}
+          };
+          std::cout << start << std::endl;
 
           // ignore rest of array, unknown & not needed in Java
           
-          this->add(sp, mcfile::Dimension::Overworld);
+          this->add(start, Pos2i{x, z}, mcfile::Dimension::Overworld);
 
         } else if (id == u8"Iglu") { // igloo
 
@@ -162,9 +183,9 @@ public:
   }
 
 private:
-  std::unordered_map<Pos2i, std::vector<StructurePiece>, Pos2iHasher> fOverworld;
-  std::unordered_map<Pos2i, std::vector<StructurePiece>, Pos2iHasher> fNether;
-  std::unordered_map<Pos2i, std::vector<StructurePiece>, Pos2iHasher> fEnd;
+  std::vector<StructureStart> fOverworld;
+  std::vector<StructureStart> fNether;
+  std::vector<StructureStart> fEnd;
   //StructurePieceCollection fOverworld;
   //StructurePieceCollection fNether;
   //StructurePieceCollection fEnd;
@@ -190,7 +211,7 @@ private:
   }
   
   static i32 readI32BE(std::span<unsigned char> bytes, size_t off) {
-    return (bytes[off] << 24) | (bytes[off + 1] << 16) | (bytes[off + 2] << 8) << bytes[off + 3];
+    return (bytes[off] << 24) | (bytes[off + 1] << 16) | (bytes[off + 2] << 8) | bytes[off + 3];
   }
 
   static std::array<i32, 6> readBB(std::span<unsigned char> bytes, size_t off) {

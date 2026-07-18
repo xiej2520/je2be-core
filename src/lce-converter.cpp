@@ -628,7 +628,7 @@ private:
     return Status::Ok();
   }
 
-  static Status LoadStructures(std::filesystem::path const &inputDirectory, Context const &ctx) {
+  static Status LoadStructures(std::filesystem::path const &inputDirectory, Context &ctx) {
     using namespace std;
 
     namespace fs = std::filesystem;
