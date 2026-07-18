@@ -536,6 +536,57 @@ CPMAddPackage(
   GIT_REPOSITORY https://github.com/Arzaghi/sparse.git)
 
 add_library(je2be STATIC ${je2be_header_files} ${mcfile_header_files} ${je2be_src_files})
+target_precompile_headers(je2be PRIVATE
+  <algorithm>
+  <array>
+  <bit>
+  <cassert>
+  <chrono>
+  <cstdint>
+  <cstring>
+  <filesystem>
+  <fstream>
+  <functional>
+  <future>
+  <iomanip>
+  <iostream>
+  <iterator>
+  <limits>
+  <map>
+  <memory>
+  <mutex>
+  <optional>
+  <queue>
+  <set>
+  <span>
+  <sstream>
+  <string>
+  <string_view>
+  <thread>
+  <tuple>
+  <type_traits>
+  <unordered_map>
+  <unordered_set>
+  <utility>
+  <variant>
+  <vector>
+
+  <nlohmann/json.hpp>
+
+  <minecraft-file.hpp>
+
+  "src/_namespace.hpp"
+  "src/_mcfile-fwd.hpp"
+  "src/_optional.hpp"
+  "src/_nullable.hpp"
+  "src/_mem.hpp"
+  "src/_system.hpp"
+  "src/_size.hpp"
+  "src/_file.hpp"
+  "src/_props.hpp"
+  "src/_parallel.hpp"
+  "src/_nbt-ext.hpp"
+)
 target_include_directories(je2be PUBLIC
   ./include
   ${leveldb_SOURCE_DIR}

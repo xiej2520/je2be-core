@@ -34,7 +34,9 @@
               }
               {
                 packages = with pkgs; [
+                  ccache
                   cmake
+                  ninja
                   zlib
                 ];
                 shellHook = ''
