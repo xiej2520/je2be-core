@@ -1136,21 +1136,23 @@ private:
     auto startsTag = Compound();
     auto referencesTag = Compound();
     
+    // does not use "minecraft:" prefix in 1.13-1.17
     std::unordered_map<std::u8string_view, std::shared_ptr<CompoundTag>> starts;
     std::unordered_map<std::u8string_view, std::unordered_set<i64>> references;
 
-    auto structures = ctx.fStructures.nearbyStarts(dimension, Pos2i{cx, cz});
-    for (auto const &s : structures) {
+    auto structures = ctx.fStructures->nearbyStarts(dimension, Pos2i{cx, cz});
+    for (auto const *s : structures) {
       // structure start
-      if (s.fChunkX == cx && s.fChunkZ == cz) {
+      if (s->fChunkX == cx && s->fChunkZ == cz) {
         // there can only be one per chunk
-        switch (s.fType) {
+        switch (s->fType) {
         case StructureType::Fortress:
           break;
         case StructureType::OceanMonument:
+          starts[FeatureName(StructureType::OceanMonument)] = s->Convert();
           break;
         case StructureType::SwampHut: {
-          starts[FeatureName(StructureType::SwampHut)] = s.Convert();
+          starts[FeatureName(StructureType::SwampHut)] = s->Convert();
           break;
         }
         case StructureType::BuriedTreasure:
@@ -1168,16 +1170,17 @@ private:
       }
 
       // structure reference
-      switch (s.fType) {
+      switch (s->fType) {
       case StructureType::Fortress: {
         //auto references = referencesTag->get<LongArrayTag>(u8"minecraft:fortress");
         break;
       }
       case StructureType::OceanMonument: {
+        references[FeatureName(StructureType::OceanMonument)].insert(LegacyStructures::PackStructureStartsReference(s->fChunkX, s->fChunkZ));
         break;
       }
       case StructureType::SwampHut: {
-        references[FeatureName(StructureType::SwampHut)].insert(LegacyStructures::PackStructureStartsReference(s.fChunkX, s.fChunkZ));
+        references[FeatureName(StructureType::SwampHut)].insert(LegacyStructures::PackStructureStartsReference(s->fChunkX, s->fChunkZ));
         break;
       }
       case StructureType::BuriedTreasure:

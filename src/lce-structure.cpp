@@ -1,5 +1,3 @@
-#include "lce/structure/_structures.hpp"
-#include "lce/structure/_structure-piece.hpp"
 #include "lce/structure/_structure-piece.hpp"
 
 namespace je2be::lce {
@@ -14,43 +12,40 @@ CompoundTagPtr StructureFeature::Convert() const {
   auto out = Compound();
   switch (fType) {
   case StructureType::OceanMonument: {
-      //auto monument = Compound();
-      //monument->set(u8"ChunkX", Int(cx));
-      //monument->set(u8"ChunkZ", Int(cz));
-      //monument->set(u8"id", u8"minecraft:monument");
-      //monument->set(u8"references", Int(0));
-      //auto children = List<Tag::Type::Compound>();
-      //auto child = Compound();
-      //child->set(u8"id", u8"minecraft:omb");
-      //child->set(u8"GD", Int(0));
-      //child->set(u8"O", Int(0));
-      //// IdentifyFacingOfOceanMonument https://github.com/kbinani/je2be/commit/6ca28383bc557bcf60b8203e655fdbb7a87d39d7
-      //// O=0: north
-      //// O=1: east
-      //// O=3: west
-      //vector<int> bbv;
-      //bbv.push_back(s.fBounds.fStart.fX);
-      //bbv.push_back(s.fBounds.fStart.fY);
-      //bbv.push_back(s.fBounds.fStart.fZ);
-      //bbv.push_back(s.fBounds.fEnd.fX);
-      //bbv.push_back(s.fBounds.fEnd.fY);
-      //bbv.push_back(s.fBounds.fEnd.fZ);
-      //auto bb = make_shared<IntArrayTag>(bbv);
-      //child->set(u8"BB", bb);
-      //children->push_back(child);
-      //monument->set(u8"Children", children);
-      //startsTag->set(u8"minecraft:monument", monument);
+      out->set(u8"ChunkX", Int(fChunkX));
+      out->set(u8"ChunkZ", Int(fChunkZ));
+      out->set(u8"id", String(NamespaceFeatureName(StructureType::OceanMonument)));
+      //out->set(u8"references", Int(0)); // not sure what this is used for
+
+      auto start = fBoundingBox.fStart;
+      auto end = fBoundingBox.fEnd;
+      std::vector<i32> boundingBox{start.fX, start.fY, start.fZ, end.fX, end.fY, end.fZ};
+      out->set(u8"BB", make_shared<IntArrayTag>(boundingBox));
+      
+      auto children = List<Tag::Type::Compound>();
+      for (auto const &piece : fPieces) {
+        children->push_back(piece->Convert());
+      }
+      out->set(u8"Children", children);
+
+      // "Processed" doesn't appear to be used in game code since 1.14
+      //auto processedTag = List<Tag::Type::Compound>();
+      //for (auto const &chunkCoord : fProcessed) {
+      //  auto chunkCoordTag = Compound();
+      //  chunkCoordTag->set(u8"X", Int(chunkCoord.fX));
+      //  chunkCoordTag->set(u8"Z", Int(chunkCoord.fZ));
+      //  processedTag->push_back(chunkCoordTag);
+      //}
+      //out->set(u8"Processed", processedTag);
+
+      break;
     }
-    //vector<i64> references;
-    //references.push_back(StructureInfo::PackStructureStartsReference(s.fStartChunk.fX, s.fStartChunk.fZ));
-    //referencesTag->set(u8"minecraft:monument", make_shared<LongArrayTag>(references));
-    //break;
     case StructureType::Fortress:
       break;
     case StructureType::SwampHut: {
       out->set(u8"ChunkX", Int(fChunkX));
       out->set(u8"ChunkZ", Int(fChunkZ));
-      out->set(u8"id", String(FeatureName(StructureType::SwampHut)));
+      out->set(u8"id", String(NamespaceFeatureName(StructureType::SwampHut)));
       //out->set(u8"references", Int(0)); // not sure what this is used for
 
       auto start = fBoundingBox.fStart;
@@ -61,8 +56,8 @@ CompoundTagPtr StructureFeature::Convert() const {
       // LCE usually has correct size, sometimes broken 8x7x10 boxes idk?
       
       auto children = List<Tag::Type::Compound>();
-      for (auto piece : fPieces) {
-        children->push_back(piece.Convert(fType));
+      for (auto const &piece : fPieces) {
+        children->push_back(piece->Convert());
       }
       out->set(u8"Children", children);
 
@@ -90,7 +85,25 @@ class StructurePiece::Impl {
 public:
 };
 
-CompoundTagPtr StructurePiece::Convert(StructureType type) const {
+CompoundTagPtr StructurePiece::Convert() const {
+  auto out = Compound();
+  auto start = fBB.fStart;
+  auto end = fBB.fEnd;
+  // sometimes child bounding box can be outside structure bounding box (e.g. witch huts),
+  // fixed at some point between Java 1.13 and 1.15
+  std::vector<i32> boundingBox{start.fX, start.fY, start.fZ, end.fX, end.fY, end.fZ};
+  out->set(u8"BB", make_shared<IntArrayTag>(boundingBox));
+  out->set(u8"GD", Int(fGenerationDepth));
+  out->set(u8"O", Int(fOrientation));
+  //// IdentifyFacingOfOceanMonument https://github.com/kbinani/je2be/commit/6ca28383bc557bcf60b8203e655fdbb7a87d39d7
+  //// O=0: north
+  //// O=1: east
+  //// O=3: west
+  out->set(u8"id", String(PieceId(fId)));
+  return out;
+}
+
+CompoundTagPtr TemplePiece::Convert() const {
   auto out = Compound();
   auto start = fBB.fStart;
   auto end = fBB.fEnd;
@@ -104,33 +117,18 @@ CompoundTagPtr StructurePiece::Convert(StructureType type) const {
   out->set(u8"Height", Int(fHeight));
   out->set(u8"Depth", Int(fDepth));
   out->set(u8"HPos", Int(fHPos));
+  out->set(u8"id", String(PieceId(fId)));
 
-  // see: 1.16.5 StructurePieceType
-  switch (type) {
-  case StructureType::Fortress:
-    break;
-  case StructureType::OceanMonument:
-    break;
-  case StructureType::SwampHut:
-    out->set(u8"id", String(u8"minecraft:tesh"));
+  if (fId == StructurePieceType::TeSH) {
     // TODO: decode bool from save data
     out->set(u8"Witch", Bool(true));
     // no cats in LCE
     out->set(u8"Cat", Bool(false));
-    break;
-  case StructureType::BuriedTreasure:
-  case StructureType::DesertPyramid:
-  case StructureType::EndCity:
-  case StructureType::Igloo:
-  case StructureType::JungleTemple:
-  case StructureType::Mineshaft:
-  case StructureType::Stronghold:
-  case StructureType::Village:
-  case StructureType::WoodlandMansion:
-    // TODO
-    break;
   }
-  /*
+  return out;
+}
+
+/*
 public interface StructurePieceType {
 	StructurePieceType MINE_SHAFT_CORRIDOR = setPieceId(MineShaftPieces.MineShaftCorridor::new, "MSCorridor");
 	StructurePieceType MINE_SHAFT_CROSSING = setPieceId(MineShaftPieces.MineShaftCrossing::new, "MSCrossing");
@@ -196,7 +194,5 @@ public interface StructurePieceType {
 	}
   */
 
-  return out;
-}
 
 } // namespace je2be::lce

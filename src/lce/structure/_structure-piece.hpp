@@ -2,13 +2,14 @@
 
 #include <minecraft-file.hpp>
 #include <je2be/pos2.hpp>
+#include <string>
 #include <vector>
 #include "_volume.hpp"
 #include "je2be/nbt.hpp"
 
 namespace je2be::lce {
 
-enum class StructureType : u8 {
+enum class StructureType {
   BuriedTreasure,
   DesertPyramid,
   EndCity,
@@ -25,7 +26,9 @@ enum class StructureType : u8 {
 
 constexpr std::u8string_view FeatureName(StructureType type) {
   // 1.13-1.17: feature name ids are stored in chunks, without "minecraft:" namespace prefix
-  // 1.18+: uses identifier with "minecraft:" namespace prefix
+  //   in Level.Structure.Starts.{FeatureName} and Level.Structure.References.{FeatureName}.
+  //   Structure start "id" field does use "minecraft:" prefix.
+  // 1.18+: chunk structure data uses identifier with "minecraft:" namespace prefix
   switch (type) {
     case StructureType::BuriedTreasure: return u8"buried_treasure";
     case StructureType::DesertPyramid: return u8"desert_pyramid";
@@ -43,20 +46,50 @@ constexpr std::u8string_view FeatureName(StructureType type) {
   }
 }
 
+// used in structure start "id" field
+constexpr std::u8string NamespaceFeatureName(StructureType type) {
+  return u8"minecraft:" + std::u8string(FeatureName(type));
+}
+
+enum class StructurePieceType {
+  OMB,
+  TeSH,
+};
+
+constexpr std::u8string_view PieceId(StructurePieceType piece) {
+  switch (piece) {
+  case StructurePieceType::OMB: return u8"minecraft:omb"; // ocean monument building
+  case StructurePieceType::TeSH: return u8"minecraft:tesh"; // swamp hut
+  default: return u8"INVALID";
+  }
+}
+
 struct StructurePiece {
   Volume fBB;
   i32 fOrientation;
   i32 fGenerationDepth;
+  StructurePieceType fId;
+  StructurePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id) :
+    fBB(bb), fOrientation{orientation}, fGenerationDepth{generationDepth}, fId(id) {}
+
+  class Impl;
+
+  virtual ~StructurePiece() = default;
+  virtual CompoundTagPtr Convert() const;
+};
+
+struct TemplePiece : StructurePiece {
   i32 fWidth;
   i32 fHeight;
   i32 fDepth;
   i32 fHPos;
-  StructurePiece(Volume bb, i32 orientation, i32 generationDepth, i32 width, i32 height, i32 depth, i32 hPos) :
-    fBB(bb), fOrientation{orientation}, fGenerationDepth{generationDepth}, fWidth{width}, fHeight{height}, fDepth{depth}, fHPos{hPos} {}
+  TemplePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, i32 width, i32 height, i32 depth, i32 hPos)
+  : StructurePiece(bb, orientation, generationDepth, id),
+    fWidth{width}, fHeight{height}, fDepth{depth}, fHPos{hPos} {}
 
   class Impl;
-  
-  CompoundTagPtr Convert(StructureType type) const;
+
+  CompoundTagPtr Convert() const override;
 };
 
 struct StructureFeature {
@@ -64,10 +97,16 @@ struct StructureFeature {
   i32 fChunkZ;
   Volume fBoundingBox;
   StructureType fType;
-  std::vector<StructurePiece> fPieces;
+  std::vector<std::unique_ptr<StructurePiece>> fPieces;
+  std::vector<Pos2i> fProcessed; // monuments only
 
-  StructureFeature(StructureType type, i32 chunkX, i32 chunkZ, Volume bb, std::vector<StructurePiece> pieces = {})
-  : fType{type}, fChunkX{chunkX}, fChunkZ{chunkZ}, fBoundingBox{std::move(bb)}, fPieces{std::move(pieces)} {}
+  StructureFeature(StructureType type, i32 chunkX, i32 chunkZ, Volume bb, std::vector<std::unique_ptr<StructurePiece>> pieces = {})
+  : fType{type}, fChunkX{chunkX}, fChunkZ{chunkZ}, fBoundingBox{std::move(bb)}, fPieces(std::move(pieces)) {}
+
+  StructureFeature(StructureType type, i32 chunkX, i32 chunkZ, Volume bb, std::unique_ptr<StructurePiece> piece)
+  : fType{type}, fChunkX{chunkX}, fChunkZ{chunkZ}, fBoundingBox{std::move(bb)}, fPieces() {
+    fPieces.emplace_back(std::move(piece));
+  }
   
   class Impl;
   
@@ -84,6 +123,14 @@ inline std::ostream& operator<<(std::ostream& os, const je2be::Volume& v) {
 }
 inline std::ostream& operator<<(std::ostream& os, const je2be::lce::StructurePiece& p) {
     os << "StructurePiece("
+       << "volume=" << p.fBB
+       << ", orientation=" << p.fOrientation
+       << ", generationDepth=" << p.fGenerationDepth
+       << ")";
+    return os;
+}
+inline std::ostream& operator<<(std::ostream& os, const je2be::lce::TemplePiece& p) {
+    os << "TemplePiece("
        << "volume=" << p.fBB
        << ", orientation=" << p.fOrientation
        << ", generationDepth=" << p.fGenerationDepth
@@ -122,10 +169,14 @@ inline std::ostream& operator<<(std::ostream& os, const je2be::lce::StructureFea
     os << "  pieces:\n";
 
     for (auto const& piece : s.fPieces) {
-        os << "    " << piece << '\n';
+        os << "    " << *piece << '\n';
+    }
+    os << "  processed: ";
+    for (auto const& proc : s.fProcessed) {
+        os << "(" << proc.fX << ", " << proc.fZ << "), ";
     }
 
-    os << "}";
+    os << "\n}";
     return os;
 }
 

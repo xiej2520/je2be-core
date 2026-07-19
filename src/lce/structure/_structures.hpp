@@ -29,7 +29,7 @@ public:
     }
   }
 
-  std::vector<StructureFeature> nearbyStarts(mcfile::Dimension d, Pos2i chunk) const {
+  std::vector<const StructureFeature *> nearbyStarts(mcfile::Dimension d, Pos2i chunk) const {
     const std::vector<StructureFeature> *structures = nullptr;
     switch (d) {
     case mcfile::Dimension::Overworld:
@@ -45,11 +45,11 @@ public:
       return {};
     }
 
-    std::vector<StructureFeature> out;
+    std::vector<const StructureFeature *> out;
     for (auto const &s : *structures) {
       // Vanilla LegacyStructureDataHandler: if chunk is within 8 of structure start (inclusive), add reference
       if (std::abs(chunk.fX - s.fChunkX) <= 8 && std::abs(chunk.fZ - s.fChunkZ) <= 8) {
-        out.push_back(s);
+        out.push_back(&s);
       }
     }
     return out;
@@ -67,27 +67,121 @@ public:
 
   void decodeMonument(CompoundTag const &in) {
     auto data = in.compoundTag(u8"data");
-    //std::cout << "monument data" << data->toSnbt({}) << std::endl;
     if (!data) {
       return;
     }
     auto features = data->compoundTag(u8"Features");
-    //std::cout << "MONUMENT FEATURES " << features << std::endl;
+    if (!features) {
+      return;
+    }
+
+    for (auto const &[key, value] : *features) {
+      auto ba = value->asByteArray();
+      if (!ba) {
+        continue;
+      }
+      auto const &bytes = ba->value();
+      auto coords = ParseChunkCoords(key);
+      if (!coords) {
+        continue;
+      }
+      auto const [_x, _z] = *coords;
+      // ignore chunk coords key, they are unused in Java as well. Use ChunkX, ChunkZ in tag.
+      
+      // byte array containing "Monument" feature
+      size_t off = 0;
+      // 4 byte unknown header, seems to always be 4
+      off += 4;
+
+      if (off + 2 > bytes.size()) {
+        continue;
+      }
+      u16 idLen = (static_cast<u16>(bytes[off]) << 8) | static_cast<u16>(bytes[off + 1]);
+      off += 2;
+      
+      if (off + idLen > bytes.size()) {
+        continue;
+      }
+      std::u8string id{bytes.begin() + off, bytes.begin() + off + idLen};
+      off += idLen;
+      if (id != u8"Monument") {
+        continue;
+      }
+      
+      i32 chunkX = readI32BE(bytes, &off);
+      i32 chunkZ = readI32BE(bytes, &off);
+
+      Volume featureBB = readBB(bytes, &off);
+      
+      i32 childrenLen = readI32BE(bytes, &off);
+      // expect one OMB piece for ocean monument
+      if (childrenLen != 1) {
+        continue;
+      }
+      
+      if (off + 2 > bytes.size()) {
+        break;
+      }
+      u16 childIdLen = (static_cast<u16>(bytes[off]) << 8) | static_cast<u16>(bytes[off + 1]);
+      off += 2;
+      if (off + childIdLen > bytes.size()) {
+        break;
+      }
+      std::u8string childId(bytes.begin() + off, bytes.begin() + off + childIdLen);
+      off += childIdLen;
+      if (childId != u8"OMB") {
+        // unknown piece type, do not try to read more
+        continue;
+      }
+      Volume pieceBB = readBB(bytes, &off);
+      i32 O = readI32BE(bytes, &off); // orientation
+      i32 GD = readI32BE(bytes, &off); // generation depth
+      // OMB child end
+      StructureFeature start{
+        StructureType::OceanMonument, chunkX, chunkZ,
+        featureBB,
+        std::make_unique<StructurePiece>(pieceBB, O, GD, StructurePieceType::OMB),
+      };
+
+      i32 processedLen = readI32BE(bytes, &off);
+      for (size_t i = 0; i < processedLen; i++) {
+        i32 x = readI32BE(bytes, &off);
+        i32 z = readI32BE(bytes, &off);
+        start.fProcessed.emplace_back(x, z);
+      }
+
+      std::cout << start << std::endl;
+      // ignore rest of bytes, unknown & not needed in Java
+      this->add(std::move(start), mcfile::Dimension::Overworld);
+      
+      for (int i = 0; i < bytes.size(); i++) {
+        char c = bytes[i];
+        if (c != 0) {
+          //std::cout << std::hex << "0x" << i << ": " << c << " " << (int) c << std::dec << std::endl;
+        }
+      }
+      for (auto const &b : bytes) {
+        std::cout << (int) b << " ";
+      }
+      for (auto const &b : bytes) {
+        std::cout << b << " ";
+      }
+      std::cout << std::endl;
+    }
   }
 
   void decodeTemple(CompoundTag const &in) {
     auto data = in.compoundTag(u8"data");
-    //std::cout << "temple data" << data->toSnbt({}) << std::endl;
     if (!data) {
       return;
     }
     auto features = data->compoundTag(u8"Features");
-    if (features == nullptr) {
+    if (!features) {
       return;
     }
     for (auto const &[key, value] : *features) {
       auto ba = value->asByteArray();
-      if (ba == nullptr) {
+      if (!ba) {
         continue;
       }
       auto const &bytes = ba->value();
@@ -100,7 +194,7 @@ public:
       
       // byte array containing "Temple" feature
       size_t off = 0;
-      // 4 byte unknown header
+      // 4 byte unknown header, seems to always be 4
       off += 4;
 
       if (off + 2 > bytes.size()) {
@@ -154,13 +248,13 @@ public:
           StructureFeature start{
             StructureType::SwampHut, chunkX, chunkZ,
             featureBB,
-            {StructurePiece{pieceBB, O, GD, Width, Height, Depth, HPos}}
+            std::move(std::make_unique<TemplePiece>(pieceBB, O, GD, StructurePieceType::TeSH, Width, Height, Depth, HPos)),
           };
           std::cout << start << std::endl;
 
           // ignore rest of bytes, unknown & not needed in Java
           
-          this->add(start, mcfile::Dimension::Overworld);
+          this->add(std::move(start), mcfile::Dimension::Overworld);
 
         } else if (childId == u8"Iglu") { // igloo
 

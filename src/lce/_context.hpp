@@ -16,13 +16,13 @@ public:
   using EntityNameMigrator = std::function<std::u8string(std::u8string const &)>;
 
   Context(TileEntityConverter tileEntityConverter, EntityNameMigrator entityNameMigrator)
-      : fTileEntityConverter(tileEntityConverter), fEntityNameMigrator(entityNameMigrator), fNewSeaLevel(false) {}
+      : fTileEntityConverter(tileEntityConverter), fEntityNameMigrator(entityNameMigrator), fNewSeaLevel(false), fStructures(std::make_shared<LegacyStructures>()) {}
 
   TileEntityConverter const fTileEntityConverter;
   EntityNameMigrator const fEntityNameMigrator;
   std::unordered_map<std::u8string, Uuid> fPlayers;
   bool fNewSeaLevel;
-  LegacyStructures fStructures;
+  std::shared_ptr<LegacyStructures> fStructures;
 };
 
 } // namespace je2be::lce

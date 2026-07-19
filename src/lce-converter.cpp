@@ -649,21 +649,21 @@ private:
         auto inRoot = CompoundTag::Read(inStream, mcfile::Encoding::Java);
         inStream.reset();
         if (inRoot) {
-          ctx.fStructures.decodeFortress(*inRoot);
+          ctx.fStructures->decodeFortress(*inRoot);
         }
       } else if (fileNameString == u8"Monument.dat") {
         auto inStream = make_shared<mcfile::stream::GzFileInputStream>(it->path());
         auto inRoot = CompoundTag::Read(inStream, mcfile::Encoding::Java);
         inStream.reset();
         if (inRoot) {
-          ctx.fStructures.decodeMonument(*inRoot);
+          ctx.fStructures->decodeMonument(*inRoot);
         }
       } else if (fileNameString == u8"Temple.dat") {
         auto inStream = make_shared<mcfile::stream::GzFileInputStream>(it->path());
         auto inRoot = CompoundTag::Read(inStream, mcfile::Encoding::Java);
         inStream.reset();
         if (inRoot) {
-          ctx.fStructures.decodeTemple(*inRoot);
+          ctx.fStructures->decodeTemple(*inRoot);
         }
       }
       // TODO Buried Treasure, EndCity, Mansion, Mineshaft, Ocean Ruin, StrongHold, Village
