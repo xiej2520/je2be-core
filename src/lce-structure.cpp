@@ -13,7 +13,7 @@ public:
 CompoundTagPtr StructureFeature::Convert() const {
   auto out = Compound();
   switch (fType) {
-  case StructureType::Monument: {
+  case StructureType::OceanMonument: {
       //auto monument = Compound();
       //monument->set(u8"ChunkX", Int(cx));
       //monument->set(u8"ChunkZ", Int(cz));
@@ -47,14 +47,10 @@ CompoundTagPtr StructureFeature::Convert() const {
     //break;
     case StructureType::Fortress:
       break;
-    case StructureType::Outpost:
-      break;
     case StructureType::SwampHut: {
       out->set(u8"ChunkX", Int(fChunkX));
       out->set(u8"ChunkZ", Int(fChunkZ));
-      // no "minecraft:" prefix in 1.13-1.17
-      //out->set(u8"id", String(u8"minecraft:swamp_hut"));
-      out->set(u8"id", String(u8"swamp_hut"));
+      out->set(u8"id", String(FeatureName(StructureType::SwampHut)));
       //out->set(u8"references", Int(0)); // not sure what this is used for
 
       auto start = fBoundingBox.fStart;
@@ -72,6 +68,17 @@ CompoundTagPtr StructureFeature::Convert() const {
 
       break;
     }
+    case StructureType::BuriedTreasure:
+    case StructureType::DesertPyramid:
+    case StructureType::EndCity:
+    case StructureType::Igloo:
+    case StructureType::JungleTemple:
+    case StructureType::Mineshaft:
+    case StructureType::Stronghold:
+    case StructureType::Village:
+    case StructureType::WoodlandMansion:
+      // TODO
+      break;
     }
 
   return out;
@@ -102,9 +109,7 @@ CompoundTagPtr StructurePiece::Convert(StructureType type) const {
   switch (type) {
   case StructureType::Fortress:
     break;
-  case StructureType::Monument:
-    break;
-  case StructureType::Outpost:
+  case StructureType::OceanMonument:
     break;
   case StructureType::SwampHut:
     out->set(u8"id", String(u8"minecraft:tesh"));
@@ -112,6 +117,17 @@ CompoundTagPtr StructurePiece::Convert(StructureType type) const {
     out->set(u8"Witch", Bool(true));
     // no cats in LCE
     out->set(u8"Cat", Bool(false));
+    break;
+  case StructureType::BuriedTreasure:
+  case StructureType::DesertPyramid:
+  case StructureType::EndCity:
+  case StructureType::Igloo:
+  case StructureType::JungleTemple:
+  case StructureType::Mineshaft:
+  case StructureType::Stronghold:
+  case StructureType::Village:
+  case StructureType::WoodlandMansion:
+    // TODO
     break;
   }
   /*

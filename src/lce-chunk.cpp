@@ -1136,8 +1136,8 @@ private:
     auto startsTag = Compound();
     auto referencesTag = Compound();
     
-    std::unordered_map<std::u8string, std::shared_ptr<CompoundTag>> starts;
-    std::unordered_map<std::u8string, std::vector<i64>> references;
+    std::unordered_map<std::u8string_view, std::shared_ptr<CompoundTag>> starts;
+    std::unordered_map<std::u8string_view, std::vector<i64>> references;
 
     auto structures = ctx.fStructures.nearbyStarts(dimension, Pos2i{cx, cz});
     for (auto const &s : structures) {
@@ -1147,16 +1147,23 @@ private:
         switch (s.fType) {
         case StructureType::Fortress:
           break;
-        case StructureType::Monument:
-          break;
-        case StructureType::Outpost:
+        case StructureType::OceanMonument:
           break;
         case StructureType::SwampHut: {
-          // no "minecraft:" prefix in 1.13-1.17
-          //starts[u8"minecraft:swamp_hut"] = s.Convert();
-          starts[u8"swamp_hut"] = s.Convert();
+          starts[FeatureName(StructureType::SwampHut)] = s.Convert();
           break;
         }
+        case StructureType::BuriedTreasure:
+        case StructureType::DesertPyramid:
+        case StructureType::EndCity:
+        case StructureType::Igloo:
+        case StructureType::JungleTemple:
+        case StructureType::Mineshaft:
+        case StructureType::Stronghold:
+        case StructureType::Village:
+        case StructureType::WoodlandMansion:
+          // TODO
+          break;
         }
       }
 
@@ -1166,26 +1173,33 @@ private:
         //auto references = referencesTag->get<LongArrayTag>(u8"minecraft:fortress");
         break;
       }
-      case StructureType::Monument: {
-        //auto references = referencesTag->get<LongArrayTag>(u8"minecraft:monument");
+      case StructureType::OceanMonument: {
         break;
       }
-      case StructureType::Outpost:
       case StructureType::SwampHut: {
-        // no "minecraft:" prefix in 1.13-1.17
-        //references[u8"minecraft:swamp_hut"].push_back(LegacyStructures::PackStructureStartsReference(s.fChunkX, s.fChunkZ));
-        references[u8"swamp_hut"].push_back(LegacyStructures::PackStructureStartsReference(s.fChunkX, s.fChunkZ));
+        references[FeatureName(StructureType::SwampHut)].push_back(LegacyStructures::PackStructureStartsReference(s.fChunkX, s.fChunkZ));
         break;
       }
+      case StructureType::BuriedTreasure:
+      case StructureType::DesertPyramid:
+      case StructureType::EndCity:
+      case StructureType::Igloo:
+      case StructureType::JungleTemple:
+      case StructureType::Mineshaft:
+      case StructureType::Stronghold:
+      case StructureType::Village:
+      case StructureType::WoodlandMansion:
+        // TODO
+        break;
       }
     }
 
     for (const auto &[structureKey, structureStart] : starts) {
-      startsTag->set(structureKey, structureStart);
+      startsTag->set(std::u8string{structureKey}, structureStart);
     }
     
     for (auto &[structureKey, structureReferences] : references) {
-      referencesTag->set(structureKey, std::make_shared<LongArrayTag>(structureReferences));
+      referencesTag->set(std::u8string{structureKey}, std::make_shared<LongArrayTag>(structureReferences));
     }
     
     if (!startsTag->empty()) {

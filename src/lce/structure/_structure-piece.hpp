@@ -9,11 +9,39 @@
 namespace je2be::lce {
 
 enum class StructureType : u8 {
+  BuriedTreasure,
+  DesertPyramid,
+  EndCity,
   Fortress,
-  Monument,
-  Outpost,
+  Igloo,
+  JungleTemple,
+  Mineshaft,
+  OceanMonument,
+  Stronghold,
   SwampHut,
+  Village,
+  WoodlandMansion,
 };
+
+constexpr std::u8string_view FeatureName(StructureType type) {
+  // 1.13-1.17: feature name ids are stored in chunks, without "minecraft:" namespace prefix
+  // 1.18+: uses identifier with "minecraft:" namespace prefix
+  switch (type) {
+    case StructureType::BuriedTreasure: return u8"buried_treasure";
+    case StructureType::DesertPyramid: return u8"desert_pyramid";
+    case StructureType::EndCity: return u8"endcity";
+    case StructureType::Fortress: return u8"fortress";
+    case StructureType::Igloo: return u8"igloo";
+    case StructureType::JungleTemple: return u8"jungle_pyramid";
+    case StructureType::Mineshaft: return u8"mineshaft";
+    case StructureType::OceanMonument: return u8"monument";
+    case StructureType::Stronghold: return u8"stronghold";
+    case StructureType::SwampHut: return u8"swamp_hut";
+    case StructureType::Village: return u8"village";
+    case StructureType::WoodlandMansion: return u8"mansion";
+    default: return u8"INVALID";
+  }
+}
 
 struct StructurePiece {
   Volume fBB;
@@ -70,10 +98,19 @@ inline std::ostream& operator<<(std::ostream& os, je2be::lce::StructureType type
     using je2be::lce::StructureType;
 
     switch (type) {
-    case StructureType::Fortress: return os << "Fortress";
-    case StructureType::Monument: return os << "Monument";
-    case StructureType::Outpost:  return os << "Outpost";
-    case StructureType::SwampHut: return os << "SwampHut";
+    case StructureType::Fortress:;
+    case StructureType::OceanMonument:;
+    case StructureType::SwampHut:
+    case StructureType::BuriedTreasure:
+    case StructureType::DesertPyramid:
+    case StructureType::EndCity:
+    case StructureType::Igloo:
+    case StructureType::JungleTemple:
+    case StructureType::Mineshaft:
+    case StructureType::Stronghold:
+    case StructureType::Village:
+    case StructureType::WoodlandMansion:
+      return os << std::string(FeatureName(type).begin(), FeatureName(type).end());
     default: return os << "Unknown(" << static_cast<int>(type) << ")";
     }
 }
