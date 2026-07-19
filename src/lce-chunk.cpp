@@ -666,6 +666,8 @@ private:
       ParseEntities(*entities, *chunk, ctx);
     }
 
+    ParseStructures(dim, *chunk, ctx);
+
     result.swap(chunk);
 
     return Status::Ok();
