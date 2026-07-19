@@ -1129,15 +1129,15 @@ private:
   }
 
   static void ParseStructures(mcfile::Dimension dimension, mcfile::je::WritableChunk &chunk, Context const &ctx) {
-    const auto cx = chunk.fChunkX;
-    const auto cz = chunk.fChunkZ;
+    auto const cx = chunk.fChunkX;
+    auto const cz = chunk.fChunkZ;
 
     auto structuresTag = Compound();
     auto startsTag = Compound();
     auto referencesTag = Compound();
     
     std::unordered_map<std::u8string_view, std::shared_ptr<CompoundTag>> starts;
-    std::unordered_map<std::u8string_view, std::vector<i64>> references;
+    std::unordered_map<std::u8string_view, std::unordered_set<i64>> references;
 
     auto structures = ctx.fStructures.nearbyStarts(dimension, Pos2i{cx, cz});
     for (auto const &s : structures) {
@@ -1177,7 +1177,7 @@ private:
         break;
       }
       case StructureType::SwampHut: {
-        references[FeatureName(StructureType::SwampHut)].push_back(LegacyStructures::PackStructureStartsReference(s.fChunkX, s.fChunkZ));
+        references[FeatureName(StructureType::SwampHut)].insert(LegacyStructures::PackStructureStartsReference(s.fChunkX, s.fChunkZ));
         break;
       }
       case StructureType::BuriedTreasure:
@@ -1194,12 +1194,14 @@ private:
       }
     }
 
-    for (const auto &[structureKey, structureStart] : starts) {
+    for (auto const &[structureKey, structureStart] : starts) {
       startsTag->set(std::u8string{structureKey}, structureStart);
     }
     
     for (auto &[structureKey, structureReferences] : references) {
-      referencesTag->set(std::u8string{structureKey}, std::make_shared<LongArrayTag>(structureReferences));
+      std::vector<i64> referencesList(structureReferences.begin(), structureReferences.end());
+      auto structureReferencesTag = std::make_shared<LongArrayTag>(referencesList);
+      referencesTag->set(std::u8string{structureKey}, structureReferencesTag);
     }
     
     if (!startsTag->empty()) {

@@ -7,8 +7,6 @@
 #include <utility>
 #include "_pos3.hpp"
 #include "je2be/strings.hpp"
-#include "_mem.hpp"
-#include "mcfile/endianness.hpp"
 #include "_structure-piece.hpp"
 #include "_volume.hpp"
 
@@ -17,16 +15,16 @@ namespace je2be::lce {
 // Reference 1.16.5 LegacyStructureDataHandler, 26.1+ LegacyStructureFileFix
 class LegacyStructures {
 public:
-  void add(StructureFeature p, Pos2i startChunk, mcfile::Dimension dim) {
+  void add(StructureFeature p, mcfile::Dimension dim) {
     switch (dim) {
     case mcfile::Dimension::Overworld:
-      fOverworld.push_back(p);
+      fOverworld.push_back(std::move(p));
       break;
     case mcfile::Dimension::Nether:
-      fNether.push_back(p);
+      fNether.push_back(std::move(p));
       break;
     case mcfile::Dimension::End:
-      fEnd.push_back(p);
+      fEnd.push_back(std::move(p));
       break;
     }
   }
@@ -36,19 +34,19 @@ public:
     switch (d) {
     case mcfile::Dimension::Overworld:
       structures = &fOverworld;
-    break;
+      break;
     case mcfile::Dimension::Nether:
       structures = &fNether;
-    break;
+      break;
     case mcfile::Dimension::End:
       structures = &fEnd;
-    break;
+      break;
     default:
       return {};
     }
 
     std::vector<StructureFeature> out;
-    for (auto s : *structures) {
+    for (auto const &s : *structures) {
       // Vanilla LegacyStructureDataHandler: if chunk is within 8 of structure start (inclusive), add reference
       if (std::abs(chunk.fX - s.fChunkX) <= 8 && std::abs(chunk.fZ - s.fChunkZ) <= 8) {
         out.push_back(s);
@@ -97,8 +95,8 @@ public:
       if (!coords) {
         continue;
       }
-      auto const [x, z] = *coords;
-      std::cout << "x: " << x << " z: " << z << std::endl;
+      auto const [_x, _z] = *coords;
+      // ignore chunk coords key, they are unused in Java as well. Use ChunkX, ChunkZ in tag.
       
       // byte array containing "Temple" feature
       size_t off = 0;
@@ -134,24 +132,25 @@ public:
         if (off + 2 > bytes.size()) {
           break;
         }
-        u16 idLen = (static_cast<u16>(bytes[off]) << 8) | static_cast<u16>(bytes.at(off + 1));
+        u16 childIdLen = (static_cast<u16>(bytes[off]) << 8) | static_cast<u16>(bytes[off + 1]);
         off += 2;
-        std::u8string id(&bytes.at(off), &bytes.at(off + idLen));
         
-        if (off + idLen > bytes.size()) {
+        if (off + childIdLen > bytes.size()) {
           break;
         }
-        off += idLen;
+        std::u8string childId(bytes.begin() + off, bytes.begin() + off + childIdLen);
+        off += childIdLen;
 
-        if (id == u8"TeSH") { // swamp hut (witch hut)
+        if (childId == u8"TeSH") { // swamp hut (witch hut)
           Volume pieceBB = readBB(bytes, &off);
-          int O = readI32BE(bytes, &off); // orientation
-          int GD = readI32BE(bytes, &off); // generation depth
-          int Width = readI32BE(bytes, &off);
-          int Height = readI32BE(bytes, &off);
-          int Depth = readI32BE(bytes, &off);
-          int HPos = readI32BE(bytes, &off); // y level of surface the structure was moved to, or -1 if not moved
+          i32 O = readI32BE(bytes, &off); // orientation
+          i32 GD = readI32BE(bytes, &off); // generation depth
+          i32 Width = readI32BE(bytes, &off);
+          i32 Height = readI32BE(bytes, &off);
+          i32 Depth = readI32BE(bytes, &off);
+          i32 HPos = readI32BE(bytes, &off); // y level of surface the structure was moved to, or -1 if not moved
           // bool Witch; // assume Witch has been spawned, don't know which byte this is
+
           StructureFeature start{
             StructureType::SwampHut, chunkX, chunkZ,
             featureBB,
@@ -159,15 +158,15 @@ public:
           };
           std::cout << start << std::endl;
 
-          // ignore rest of array, unknown & not needed in Java
+          // ignore rest of bytes, unknown & not needed in Java
           
-          this->add(start, Pos2i{x, z}, mcfile::Dimension::Overworld);
+          this->add(start, mcfile::Dimension::Overworld);
 
-        } else if (id == u8"Iglu") { // igloo
+        } else if (childId == u8"Iglu") { // igloo
 
-        } else if (id == u8"TeDP") { // desert pyramid (temple)
+        } else if (childId == u8"TeDP") { // desert pyramid (temple)
 
-        } else if (id == u8"TeJP") { // jungle pyramid (temple)
+        } else if (childId == u8"TeJP") { // jungle pyramid (temple)
 
         } else {
           // unknown piece type, do not try to read more
@@ -249,4 +248,4 @@ private:
   }
 };
 
-} // namespace je2be::java
+} // namespace je2be::lce

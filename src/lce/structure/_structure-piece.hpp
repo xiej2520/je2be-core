@@ -121,7 +121,7 @@ inline std::ostream& operator<<(std::ostream& os, const je2be::lce::StructureFea
     os << "  volume: " << s.fBoundingBox << "\n";
     os << "  pieces:\n";
 
-    for (const auto& piece : s.fPieces) {
+    for (auto const& piece : s.fPieces) {
         os << "    " << piece << '\n';
     }
 
