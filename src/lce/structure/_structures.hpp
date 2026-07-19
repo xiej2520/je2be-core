@@ -32,7 +32,7 @@ public:
   }
 
   std::vector<StructureFeature> nearbyStarts(mcfile::Dimension d, Pos2i chunk) const {
-    const std::vector<StructureFeature> *structures;
+    const std::vector<StructureFeature> *structures = nullptr;
     switch (d) {
     case mcfile::Dimension::Overworld:
       structures = &fOverworld;
@@ -42,7 +42,9 @@ public:
     break;
     case mcfile::Dimension::End:
       structures = &fEnd;
-      break;
+    break;
+    default:
+      return {};
     }
 
     std::vector<StructureFeature> out;
@@ -82,8 +84,15 @@ public:
       return;
     }
     auto features = data->compoundTag(u8"Features");
+    if (features == nullptr) {
+      return;
+    }
     for (auto const &[key, value] : *features) {
-      auto bytes = value->asByteArray()->value();
+      auto ba = value->asByteArray();
+      if (ba == nullptr) {
+        continue;
+      }
+      auto const &bytes = ba->value();
       auto coords = ParseChunkCoords(key);
       if (!coords) {
         continue;
@@ -96,56 +105,57 @@ public:
       // 4 byte unknown header
       off += 4;
 
-      u16 idLen = (bytes.at(off) << 8) | bytes.at(off + 1);
+      if (off + 2 > bytes.size()) {
+        continue;
+      }
+      u16 idLen = (static_cast<u16>(bytes[off]) << 8) | static_cast<u16>(bytes[off + 1]);
       off += 2;
-      std::u8string id(&bytes.at(off), &bytes.at(off + idLen));
+      
+      if (off + idLen > bytes.size()) {
+        continue;
+      }
+      std::u8string id{bytes.begin() + off, bytes.begin() + off + idLen};
       off += idLen;
       if (id != u8"Temple") {
         continue;
       }
       
-      i32 chunkX = readI32BE(bytes, off);
-      off += 4;
-      i32 chunkZ = readI32BE(bytes, off);
-      off += 4;
+      i32 chunkX = readI32BE(bytes, &off);
+      i32 chunkZ = readI32BE(bytes, &off);
 
-      std::array<i32, 6> featureBB = readBB(bytes, off);
-      off += sizeof(i32) * 6;
+      Volume featureBB = readBB(bytes, &off);
       
-      i32 childrenLen = readI32BE(bytes, off);
-      off += 4;
+      i32 childrenLen = readI32BE(bytes, &off);
+      if (childrenLen < 0) {
+        continue;
+      }
       
-      for (int i = 0; i < childrenLen; i++) {
-        u16 idLen = (bytes.at(off) << 8) | bytes.at(off + 1);
+      for (size_t i = 0; i < childrenLen; i++) {
+        if (off + 2 > bytes.size()) {
+          break;
+        }
+        u16 idLen = (static_cast<u16>(bytes[off]) << 8) | static_cast<u16>(bytes.at(off + 1));
         off += 2;
         std::u8string id(&bytes.at(off), &bytes.at(off + idLen));
+        
+        if (off + idLen > bytes.size()) {
+          break;
+        }
         off += idLen;
 
         if (id == u8"TeSH") { // swamp hut (witch hut)
-          std::array<i32, 6> pieceBB = readBB(bytes, off);
-          off += sizeof(i32) * 6;
-          
-          int O = readI32BE(bytes, off); // orientation
-          O = mcfile::I32FromBE(Mem::Read<i32>(bytes, off));
-          off += 4;
-          int GD = readI32BE(bytes, off); // generation depth
-          off += 4;
-          int Width = readI32BE(bytes, off);
-          Width = mcfile::I32FromBE(Mem::Read<i32>(bytes, off));
-          off += 4;
-          int Height = readI32BE(bytes, off);
-          Height = mcfile::I32FromBE(Mem::Read<i32>(bytes, off));
-          off += 4;
-          int Depth = readI32BE(bytes, off);
-          off += 4;
-          int HPos = readI32BE(bytes, off); // y level of surface the structure was moved to, or -1 if not moved
-          off += 4;
-
+          Volume pieceBB = readBB(bytes, &off);
+          int O = readI32BE(bytes, &off); // orientation
+          int GD = readI32BE(bytes, &off); // generation depth
+          int Width = readI32BE(bytes, &off);
+          int Height = readI32BE(bytes, &off);
+          int Depth = readI32BE(bytes, &off);
+          int HPos = readI32BE(bytes, &off); // y level of surface the structure was moved to, or -1 if not moved
           // bool Witch; // assume Witch has been spawned, don't know which byte this is
           StructureFeature start{
             StructureType::SwampHut, chunkX, chunkZ,
-            Volume{Pos3i{featureBB[0], featureBB[1], featureBB[2]}, Pos3i{featureBB[3], featureBB[4], featureBB[5]}},
-            {StructurePiece{Volume{Pos3i{pieceBB[0], pieceBB[1], pieceBB[2]}, Pos3i{pieceBB[3], pieceBB[4], pieceBB[5]}}, O, GD, Width, Height, Depth, HPos}}
+            featureBB,
+            {StructurePiece{pieceBB, O, GD, Width, Height, Depth, HPos}}
           };
           std::cout << start << std::endl;
 
@@ -159,6 +169,9 @@ public:
 
         } else if (id == u8"TeJP") { // jungle pyramid (temple)
 
+        } else {
+          // unknown piece type, do not try to read more
+          break;
         }
         
       }
@@ -212,16 +225,27 @@ private:
     return std::make_pair(*x, *z);
   }
   
-  static i32 readI32BE(std::span<unsigned char> bytes, size_t off) {
-    return (bytes[off] << 24) | (bytes[off + 1] << 16) | (bytes[off + 2] << 8) | bytes[off + 3];
+  static i32 readI32BE(std::span<const unsigned char> bytes, size_t *off) {
+    assert(*off + 4 <= bytes.size());
+    i32 value = static_cast<i32>(
+        static_cast<u32>(bytes[*off]) << 24 |
+        static_cast<u32>(bytes[*off + 1]) << 16 |
+        static_cast<u32>(bytes[*off + 2]) << 8 |
+        static_cast<u32>(bytes[*off + 3])
+    );
+    *off += 4;
+    return value;
   }
 
-  static std::array<i32, 6> readBB(std::span<unsigned char> bytes, size_t off) {
+  static Volume readBB(std::span<const unsigned char> bytes, size_t *off) {
     std::array<i32, 6> result{};
-    for (int i = 0; i < 6; i++) {
-      result[i] = readI32BE(bytes, off + i * 4);
+    for (i32 &i : result) {
+      i = readI32BE(bytes, off);
     }
-    return result;
+    return Volume{
+      Pos3i{result[0], result[1], result[2]},
+      Pos3i{result[3], result[4], result[5]}
+    };
   }
 };
 
