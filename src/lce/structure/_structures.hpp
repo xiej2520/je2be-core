@@ -90,7 +90,7 @@ public:
       
       // byte array containing "Monument" feature
       size_t off = 0;
-      // 4 byte unknown header, seems to always be 4
+      // 4 byte unknown header, 4 for TU1.83, 3 for TU1.69
       off += 4;
 
       if (off + 2 > bytes.size()) {
@@ -194,7 +194,7 @@ public:
       
       // byte array containing "Temple" feature
       size_t off = 0;
-      // 4 byte unknown header, seems to always be 4
+      // 4 byte unknown header, 4 for 1.83, 3 for 1.69, 1.45, 1 for 1.21, 1.31, 0 for 1.15
       off += 4;
 
       if (off + 2 > bytes.size()) {
@@ -216,6 +216,7 @@ public:
       i32 chunkZ = readI32BE(bytes, &off);
 
       Volume featureBB = readBB(bytes, &off);
+      // TODO: check "Patch 1.25 Fix for MCCE #1756 - Witch Hut Bounding Box Too Small."
       
       i32 childrenLen = readI32BE(bytes, &off);
       if (childrenLen < 0) {
