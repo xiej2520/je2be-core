@@ -1149,6 +1149,7 @@ private:
         // there can only be one per chunk
         switch (s->fType) {
         case StructureType::Fortress:
+          starts[FeatureName(StructureType::Fortress)] = s->Convert();
           break;
         case StructureType::OceanMonument:
           starts[FeatureName(StructureType::OceanMonument)] = s->Convert();
@@ -1174,7 +1175,7 @@ private:
       // structure reference
       switch (s->fType) {
       case StructureType::Fortress: {
-        //auto references = referencesTag->get<LongArrayTag>(u8"minecraft:fortress");
+        references[FeatureName(StructureType::Fortress)].insert(LegacyStructures::PackStructureStartsReference(s->fChunkX, s->fChunkZ));
         break;
       }
       case StructureType::OceanMonument: {

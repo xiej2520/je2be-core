@@ -46,24 +46,60 @@ constexpr std::u8string_view FeatureName(StructureType type) {
   }
 }
 
-// used in structure start "id" field
+// namespaced feature name is used in structure start "id" field
 constexpr std::u8string NamespaceFeatureName(StructureType type) {
   return u8"minecraft:" + std::u8string(FeatureName(type));
 }
 
 enum class StructurePieceType {
+  // ocean monument building seems to be the only ocean monument piece saved in LCE and Java 1.12.2
   OMB,
-  TeSH,
+
+  TeSH, // swamp hut
+
+  NeBCr,   // BridgeCrossing
+  NeBEF,   // BridgeEndFiller
+  NeBS,    // BridgeStraight
+  NeCCS,   // CastleCorridorStairsPiece
+  NeCTB,   // CastleCorridorTBalconyPiece
+  NeCE,    // CastleEntrance
+  NeSCSC,  // CastleSmallCorridorCrossingPiece
+  NeSCLT,  // CastleSmallCorridorLeftTurnPiece
+  NeSC,    // CastleSmallCorridorPiece
+  NeSCRT,  // CastleSmallCorridorRightTurnPiece
+  NeCSR,   // CastleStalkRoom (netherwart farm)
+  NeMT,    // MonsterThrone (blaze spawner)
+  NeRC,    // RoomCrossing
+  NeSR,    // StairsRoom
+  NeStart, // StartPiece
 };
 
+// namespaced structure pieces are registered in lowercase in 1.14+
 constexpr std::u8string_view PieceId(StructurePieceType piece) {
   switch (piece) {
-  case StructurePieceType::OMB: return u8"minecraft:omb"; // ocean monument building
-  case StructurePieceType::TeSH: return u8"minecraft:tesh"; // swamp hut
+  case StructurePieceType::OMB: return u8"minecraft:omb";
+
+  case StructurePieceType::TeSH: return u8"minecraft:tesh";
+
+  case StructurePieceType::NeBCr: return u8"minecraft:nebcr";
+  case StructurePieceType::NeBEF: return u8"minecraft:nebef";
+  case StructurePieceType::NeBS: return u8"minecraft:nebs";
+  case StructurePieceType::NeCCS: return u8"minecraft:neccs";
+  case StructurePieceType::NeCTB: return u8"minecraft:nectb";
+  case StructurePieceType::NeCE: return u8"minecraft:nece";
+  case StructurePieceType::NeSCSC: return u8"minecraft:nescsc";
+  case StructurePieceType::NeSCLT: return u8"minecraft:nesclt";
+  case StructurePieceType::NeSC: return u8"minecraft:nesc";
+  case StructurePieceType::NeSCRT: return u8"minecraft:nescrt";
+  case StructurePieceType::NeCSR: return u8"minecraft:necsr";
+  case StructurePieceType::NeMT: return u8"minecraft:nemt";
+  case StructurePieceType::NeRC: return u8"minecraft:nerc";
+  case StructurePieceType::NeSR: return u8"minecraft:nesr";
+  case StructurePieceType::NeStart: return u8"minecraft:nestart";
+
   default: return u8"INVALID";
   }
 }
-
 struct StructurePiece {
   Volume fBB;
   i32 fOrientation;
@@ -88,6 +124,17 @@ struct TemplePiece : StructurePiece {
     fWidth{width}, fHeight{height}, fDepth{depth}, fHPos{hPos} {}
 
   class Impl;
+
+  CompoundTagPtr Convert() const override;
+};
+
+struct FortressPiece : StructurePiece {
+  std::optional<bool> fMob;
+  std::optional<i32> fSeed;
+  std::optional<bool> fChest;
+
+  FortressPiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, std::optional<bool> mob, std::optional<i32> seed, std::optional<bool> chest)
+  : StructurePiece(bb, orientation, generationDepth, id), fMob{mob}, fSeed{seed}, fChest{chest} {}
 
   CompoundTagPtr Convert() const override;
 };

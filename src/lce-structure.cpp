@@ -1,3 +1,4 @@
+#include "je2be/nbt.hpp"
 #include "lce/structure/_structure-piece.hpp"
 
 namespace je2be::lce {
@@ -40,8 +41,25 @@ CompoundTagPtr StructureFeature::Convert() const {
 
       break;
     }
-    case StructureType::Fortress:
+    case StructureType::Fortress: {
+      out->set(u8"ChunkX", Int(fChunkX));
+      out->set(u8"ChunkZ", Int(fChunkZ));
+      out->set(u8"id", String(NamespaceFeatureName(StructureType::Fortress)));
+      //out->set(u8"references", Int(0)); // not sure what this is used for
+
+      auto start = fBoundingBox.fStart;
+      auto end = fBoundingBox.fEnd;
+      std::vector<i32> boundingBox{start.fX, start.fY, start.fZ, end.fX, end.fY, end.fZ};
+      out->set(u8"BB", make_shared<IntArrayTag>(boundingBox));
+
+      auto children = List<Tag::Type::Compound>();
+      for (auto const &piece : fPieces) {
+        children->push_back(piece->Convert());
+      }
+      out->set(u8"Children", children);
+
       break;
+    }
     case StructureType::SwampHut: {
       out->set(u8"ChunkX", Int(fChunkX));
       out->set(u8"ChunkZ", Int(fChunkZ));
@@ -104,15 +122,8 @@ CompoundTagPtr StructurePiece::Convert() const {
 }
 
 CompoundTagPtr TemplePiece::Convert() const {
-  auto out = Compound();
-  auto start = fBB.fStart;
-  auto end = fBB.fEnd;
-  // sometimes child bounding box can be outside structure bounding box (e.g. witch huts),
-  // fixed at some point between Java 1.13 and 1.15
-  std::vector<i32> boundingBox{start.fX, start.fY, start.fZ, end.fX, end.fY, end.fZ};
-  out->set(u8"BB", make_shared<IntArrayTag>(boundingBox));
-  out->set(u8"GD", Int(fGenerationDepth));
-  out->set(u8"O", Int(fOrientation));
+  auto out = StructurePiece::Convert();
+
   out->set(u8"Width", Int(fWidth));
   out->set(u8"Height", Int(fHeight));
   out->set(u8"Depth", Int(fDepth));
@@ -124,6 +135,37 @@ CompoundTagPtr TemplePiece::Convert() const {
     out->set(u8"Witch", Bool(true));
     // no cats in LCE
     out->set(u8"Cat", Bool(false));
+  }
+  return out;
+}
+
+CompoundTagPtr FortressPiece::Convert() const {
+  auto out = StructurePiece::Convert();
+
+  out->set(u8"id", String(PieceId(fId)));
+
+  switch (fId) {
+  case StructurePieceType::NeMT: { // blaze spawner
+    if (fMob.has_value()) {
+      out->set(u8"Mob", Bool(fMob.value()));
+    }
+    break;
+  }
+  case StructurePieceType::NeBEF: { // bridge end filler
+    if (fSeed.has_value()) {
+      out->set(u8"Seed", Int(fSeed.value()));
+    }
+    break;
+  }
+  case StructurePieceType::NeSCLT:
+    // fallthrough
+  case StructurePieceType::NeSCRT: {
+    if (fChest.has_value()) {
+      out->set(u8"Chest", Bool(fChest.value()));
+    }
+    break;
+  }
+  default: break;
   }
   return out;
 }

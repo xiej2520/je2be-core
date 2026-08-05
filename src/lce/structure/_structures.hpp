@@ -1,6 +1,7 @@
 #pragma once
 
 #include <je2be/pos2.hpp>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -57,12 +58,144 @@ public:
   
   void decodeFortress(CompoundTag const &in) {
     auto data = in.compoundTag(u8"data");
-    //std::cout << "fortress data" << data->toSnbt({}) << std::endl;
     if (!data) {
       return;
     }
     auto features = data->compoundTag(u8"Features");
-    //std::cout << "FORTRESS FEATURES " << features->toSnbt({}) << std::endl;
+    if (!features) {
+      return;
+    }
+
+    for (auto const &[key, value] : *features) {
+      auto ba = value->asByteArray();
+      if (!ba) {
+        continue;
+      }
+      auto const &bytes = ba->value();
+      auto coords = ParseChunkCoords(key);
+      if (!coords) {
+        continue;
+      }
+      auto const [_x, _z] = *coords;
+      // ignore chunk coords key, they are unused in Java as well. Use ChunkX, ChunkZ in tag.
+      
+      // byte array containing "Fortress" feature
+      size_t off = 0;
+      // 4 byte unknown header, 4 for TU1.83, 3 for TU1.69
+      off += 4;
+
+      if (off + 2 > bytes.size()) {
+        continue;
+      }
+      u16 idLen = (static_cast<u16>(bytes[off]) << 8) | static_cast<u16>(bytes[off + 1]);
+      off += 2;
+      
+      if (off + idLen > bytes.size()) {
+        continue;
+      }
+      std::u8string id{bytes.begin() + off, bytes.begin() + off + idLen};
+      off += idLen;
+      if (id != u8"Fortress") {
+        continue;
+      }
+      
+      i32 chunkX = readI32BE(bytes, &off);
+      i32 chunkZ = readI32BE(bytes, &off);
+
+      Volume featureBB = readBB(bytes, &off);
+      
+      i32 childrenLen = readI32BE(bytes, &off);
+      if (childrenLen < 0) {
+        continue;
+      }
+      
+      std::vector<std::unique_ptr<StructurePiece>> pieces;
+      
+      std::cout << "FORTRESS CHILDREN" << childrenLen << std::endl;
+      for (size_t i = 0; i < childrenLen; i++) {
+        if (off + 2 > bytes.size()) {
+          break;
+        }
+        u16 childIdLen = (static_cast<u16>(bytes[off]) << 8) | static_cast<u16>(bytes[off + 1]);
+        off += 2;
+        
+        if (off + childIdLen > bytes.size()) {
+          break;
+        }
+        std::u8string childId(bytes.begin() + off, bytes.begin() + off + childIdLen);
+        off += childIdLen;
+
+        Volume pieceBB = readBB(bytes, &off);
+        i32 O = readI32BE(bytes, &off); // orientation
+        i32 GD = readI32BE(bytes, &off); // generation depth
+
+        static const std::unordered_map<std::u8string, StructurePieceType> fortressIds = {
+            {u8"NeBCr", StructurePieceType::NeBCr},
+            {u8"NeBEF", StructurePieceType::NeBEF},
+            {u8"NeBS", StructurePieceType::NeBS},
+            {u8"NeCCS", StructurePieceType::NeCCS},
+            {u8"NeCTB", StructurePieceType::NeCTB},
+            {u8"NeCE", StructurePieceType::NeCE},
+            {u8"NeSCSC", StructurePieceType::NeSCSC},
+            {u8"NeSCLT", StructurePieceType::NeSCLT},
+            {u8"NeSC", StructurePieceType::NeSC},
+            {u8"NeSCRT", StructurePieceType::NeSCRT},
+            {u8"NeCSR", StructurePieceType::NeCSR},
+            {u8"NeMT", StructurePieceType::NeMT},
+            {u8"NeRC", StructurePieceType::NeRC},
+            {u8"NeSR", StructurePieceType::NeSR},
+            {u8"NeStart", StructurePieceType::NeStart},
+        };
+
+        auto it = fortressIds.find(childId);
+        if (it == fortressIds.end()) {
+          // unknown piece type, abort read of bytes
+          break;
+        }
+        auto id = it->second;
+        
+        std::optional<bool> mob = std::nullopt;
+        std::optional<i32> seed = std::nullopt;
+        std::optional<bool> chest = std::nullopt;
+        bool invalid = false;
+        switch (it->second) {
+        case StructurePieceType::NeMT: { // blaze spawner
+          if (off >= bytes.size()) {
+              invalid = true;
+              break;
+          }
+          mob = static_cast<bool>(bytes[off]);
+          off += 1;
+          break;
+        }
+        case StructurePieceType::NeBEF: {
+          seed = readI32BE(bytes, &off);
+          break;
+        }
+        case StructurePieceType::NeSCLT: // fallthrough
+        case StructurePieceType::NeSCRT: {
+          chest = static_cast<bool>(bytes[off]);
+          off += 1;
+          break;
+        }
+        default: break;
+        }
+
+        if (invalid) {
+          break;
+        }
+
+        pieces.push_back(std::make_unique<FortressPiece>(pieceBB, O, GD, id, mob, seed, chest));
+      }
+
+      StructureFeature start{
+        StructureType::Fortress, chunkX, chunkZ,
+        featureBB,
+        std::move(pieces),
+      };
+      std::cout << start << std::endl;
+      this->add(std::move(start), mcfile::Dimension::Nether);
+    }
   }
 
   void decodeMonument(CompoundTag const &in) {
