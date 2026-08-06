@@ -111,7 +111,6 @@ public:
       
       std::vector<std::unique_ptr<StructurePiece>> pieces;
       
-      std::cout << "FORTRESS CHILDREN" << childrenLen << std::endl;
       for (size_t i = 0; i < childrenLen; i++) {
         if (off + 2 > bytes.size()) {
           break;
@@ -369,38 +368,51 @@ public:
         std::u8string childId(bytes.begin() + off, bytes.begin() + off + childIdLen);
         off += childIdLen;
 
+        // common StructurePice fields
+        Volume pieceBB = readBB(bytes, &off);
+        i32 O = readI32BE(bytes, &off); // orientation
+        i32 GD = readI32BE(bytes, &off); // generation depth
+
+        // common ScatteredFeaturePiece fields
+        i32 Width = readI32BE(bytes, &off);
+        i32 Height = readI32BE(bytes, &off);
+        i32 Depth = readI32BE(bytes, &off);
+        i32 HPos = readI32BE(bytes, &off); // y level of surface the structure was moved to, or -1 if not moved
+
+        StructureType type;
+        StructurePieceType id;
         if (childId == u8"TeSH") { // swamp hut (witch hut)
-          Volume pieceBB = readBB(bytes, &off);
-          i32 O = readI32BE(bytes, &off); // orientation
-          i32 GD = readI32BE(bytes, &off); // generation depth
-          i32 Width = readI32BE(bytes, &off);
-          i32 Height = readI32BE(bytes, &off);
-          i32 Depth = readI32BE(bytes, &off);
-          i32 HPos = readI32BE(bytes, &off); // y level of surface the structure was moved to, or -1 if not moved
+          type = StructureType::SwampHut;
+          id = StructurePieceType::TeSH;
           // bool Witch; // assume Witch has been spawned, don't know which byte this is
-
-          StructureFeature start{
-            StructureType::SwampHut, chunkX, chunkZ,
-            featureBB,
-            std::move(std::make_unique<TemplePiece>(pieceBB, O, GD, StructurePieceType::TeSH, Width, Height, Depth, HPos)),
-          };
-          std::cout << start << std::endl;
-
           // ignore rest of bytes, unknown & not needed in Java
-          
-          this->add(std::move(start), mcfile::Dimension::Overworld);
-
         } else if (childId == u8"Iglu") { // igloo
-
+          type = StructureType::Igloo;
+          id = StructurePieceType::Iglu;
+          // doesn't have any other fields in Java 1.12, but 1.13 has "Template" and "Rot" fields
+          // TODO: figure out what rest of bytes mean
         } else if (childId == u8"TeDP") { // desert pyramid (temple)
-
+          type = StructureType::DesertPyramid;
+          id = StructurePieceType::TeDP;
+          // hasPlacedChest0, hasPlacedChest1, hasPlacedChest2, hasPlacedChest3 bools after unknown bytes
         } else if (childId == u8"TeJP") { // jungle pyramid (temple)
-
+          type = StructureType::JungleTemple;
+          id = StructurePieceType::TeJP;
+          // placedMainChest, placedHiddenChest, placedTrap1, placedTrap2 bools after unknown bytes
         } else {
           // unknown piece type, do not try to read more
           break;
         }
-        
+
+        StructureFeature start{
+          type, chunkX, chunkZ, featureBB,
+          std::move(std::make_unique<TemplePiece>(pieceBB, O, GD, id, Width, Height, Depth, HPos)),
+        };
+        std::cout << start << std::endl;
+        this->add(std::move(start), mcfile::Dimension::Overworld);
+
+        // temples should have childrenLen == 1, don't know exact size of temple piece bytes so stop
+        break;
       }
       
       

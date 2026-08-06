@@ -11,24 +11,24 @@ public:
 
 CompoundTagPtr StructureFeature::Convert() const {
   auto out = Compound();
+  out->set(u8"ChunkX", Int(fChunkX));
+  out->set(u8"ChunkZ", Int(fChunkZ));
+  out->set(u8"id", String(NamespaceFeatureName(fType)));
+  //out->set(u8"references", Int(0)); // not sure what this is used for
+  auto start = fBoundingBox.fStart;
+  auto end = fBoundingBox.fEnd;
+  std::vector<i32> boundingBox{start.fX, start.fY, start.fZ, end.fX, end.fY, end.fZ};
+  out->set(u8"BB", make_shared<IntArrayTag>(boundingBox));
+
+  auto children = List<Tag::Type::Compound>();
+  for (auto const &piece : fPieces) {
+    children->push_back(piece->Convert());
+  }
+  out->set(u8"Children", children);
+
+
   switch (fType) {
   case StructureType::OceanMonument: {
-      out->set(u8"ChunkX", Int(fChunkX));
-      out->set(u8"ChunkZ", Int(fChunkZ));
-      out->set(u8"id", String(NamespaceFeatureName(StructureType::OceanMonument)));
-      //out->set(u8"references", Int(0)); // not sure what this is used for
-
-      auto start = fBoundingBox.fStart;
-      auto end = fBoundingBox.fEnd;
-      std::vector<i32> boundingBox{start.fX, start.fY, start.fZ, end.fX, end.fY, end.fZ};
-      out->set(u8"BB", make_shared<IntArrayTag>(boundingBox));
-      
-      auto children = List<Tag::Type::Compound>();
-      for (auto const &piece : fPieces) {
-        children->push_back(piece->Convert());
-      }
-      out->set(u8"Children", children);
-
       // "Processed" doesn't appear to be used in game code since 1.14
       //auto processedTag = List<Tag::Type::Compound>();
       //for (auto const &chunkCoord : fProcessed) {
@@ -42,49 +42,25 @@ CompoundTagPtr StructureFeature::Convert() const {
       break;
     }
     case StructureType::Fortress: {
-      out->set(u8"ChunkX", Int(fChunkX));
-      out->set(u8"ChunkZ", Int(fChunkZ));
-      out->set(u8"id", String(NamespaceFeatureName(StructureType::Fortress)));
-      //out->set(u8"references", Int(0)); // not sure what this is used for
-
-      auto start = fBoundingBox.fStart;
-      auto end = fBoundingBox.fEnd;
-      std::vector<i32> boundingBox{start.fX, start.fY, start.fZ, end.fX, end.fY, end.fZ};
-      out->set(u8"BB", make_shared<IntArrayTag>(boundingBox));
-
-      auto children = List<Tag::Type::Compound>();
-      for (auto const &piece : fPieces) {
-        children->push_back(piece->Convert());
-      }
-      out->set(u8"Children", children);
-
       break;
     }
     case StructureType::SwampHut: {
-      out->set(u8"ChunkX", Int(fChunkX));
-      out->set(u8"ChunkZ", Int(fChunkZ));
-      out->set(u8"id", String(NamespaceFeatureName(StructureType::SwampHut)));
-      //out->set(u8"references", Int(0)); // not sure what this is used for
-
-      auto start = fBoundingBox.fStart;
-      auto end = fBoundingBox.fEnd;
-      std::vector<i32> boundingBox{start.fX, start.fY, start.fZ, end.fX, end.fY, end.fZ};
-      out->set(u8"BB", make_shared<IntArrayTag>(boundingBox));
       // note: witch hut bounding box is 7x7x9 in 1.8.1+
       // LCE usually has correct size, sometimes broken 8x7x10 boxes idk?
-      
-      auto children = List<Tag::Type::Compound>();
-      for (auto const &piece : fPieces) {
-        children->push_back(piece->Convert());
-      }
-      out->set(u8"Children", children);
-
       break;
     }
     case StructureType::BuriedTreasure:
     case StructureType::DesertPyramid:
     case StructureType::EndCity:
     case StructureType::Igloo:
+      // Igloo bounding box is commonly misaligned in Java 1.12/LCE
+      //
+      // Mojang just deletes igloo bounding boxes in v1488 datafixer `IglooMetadataRemovalFix`: 
+      // if all pieces are `Iglu` then delete `Children` and set `id: Igloo`
+      // Upon load the structure data will be deleted and be replaced with `igloo: { id: "INVALID" }`
+      // in vanilla 1.16.5 :shrug:
+      out->erase(u8"Children");
+      break;
     case StructureType::JungleTemple:
     case StructureType::Mineshaft:
     case StructureType::Stronghold:
@@ -130,11 +106,31 @@ CompoundTagPtr TemplePiece::Convert() const {
   out->set(u8"HPos", Int(fHPos));
   out->set(u8"id", String(PieceId(fId)));
 
-  if (fId == StructurePieceType::TeSH) {
+  switch (fId) {
+  case StructurePieceType::TeJP: {
+    // TODO: decode bool from save data
+    out->set(u8"placedMainChest", Bool(true));
+    out->set(u8"placedHiddenChest", Bool(true));
+    out->set(u8"placedTrap1", Bool(true));
+    out->set(u8"placedTrap2", Bool(true));
+    break;
+  }
+  case StructurePieceType::Iglu:
+    break;
+  case StructurePieceType::TeSH:
     // TODO: decode bool from save data
     out->set(u8"Witch", Bool(true));
     // no cats in LCE
     out->set(u8"Cat", Bool(false));
+    break;
+  case StructurePieceType::TeDP:
+    out->set(u8"hasPlacedChest0", Bool(true));
+    out->set(u8"hasPlacedChest1", Bool(true));
+    out->set(u8"hasPlacedChest2", Bool(true));
+    out->set(u8"hasPlacedChest3", Bool(true));
+    break;
+  default:
+    break;
   }
   return out;
 }

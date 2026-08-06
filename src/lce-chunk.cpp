@@ -1149,20 +1149,15 @@ private:
         // there can only be one per chunk
         switch (s->fType) {
         case StructureType::Fortress:
-          starts[FeatureName(StructureType::Fortress)] = s->Convert();
-          break;
         case StructureType::OceanMonument:
-          starts[FeatureName(StructureType::OceanMonument)] = s->Convert();
-          break;
-        case StructureType::SwampHut: {
-          starts[FeatureName(StructureType::SwampHut)] = s->Convert();
-          break;
-        }
-        case StructureType::BuriedTreasure:
+        case StructureType::SwampHut:
         case StructureType::DesertPyramid:
-        case StructureType::EndCity:
         case StructureType::Igloo:
         case StructureType::JungleTemple:
+          starts[FeatureName(s->fType)] = s->Convert();
+          break;
+        case StructureType::BuriedTreasure:
+        case StructureType::EndCity:
         case StructureType::Mineshaft:
         case StructureType::Stronghold:
         case StructureType::Village:
@@ -1174,23 +1169,16 @@ private:
 
       // structure reference
       switch (s->fType) {
-      case StructureType::Fortress: {
-        references[FeatureName(StructureType::Fortress)].insert(LegacyStructures::PackStructureStartsReference(s->fChunkX, s->fChunkZ));
-        break;
-      }
-      case StructureType::OceanMonument: {
-        references[FeatureName(StructureType::OceanMonument)].insert(LegacyStructures::PackStructureStartsReference(s->fChunkX, s->fChunkZ));
-        break;
-      }
-      case StructureType::SwampHut: {
-        references[FeatureName(StructureType::SwampHut)].insert(LegacyStructures::PackStructureStartsReference(s->fChunkX, s->fChunkZ));
-        break;
-      }
-      case StructureType::BuriedTreasure:
+      case StructureType::Fortress:
+      case StructureType::OceanMonument:
+      case StructureType::SwampHut:
       case StructureType::DesertPyramid:
-      case StructureType::EndCity:
       case StructureType::Igloo:
       case StructureType::JungleTemple:
+        references[FeatureName(s->fType)].insert(LegacyStructures::PackStructureStartsReference(s->fChunkX, s->fChunkZ));
+        break;
+      case StructureType::BuriedTreasure:
+      case StructureType::EndCity:
       case StructureType::Mineshaft:
       case StructureType::Stronghold:
       case StructureType::Village:
@@ -1219,10 +1207,12 @@ private:
     }
     if (!structuresTag->empty()) {
       chunk.fStructures = structuresTag;
-      std::cout << std::format(
-          "Wrote structures tag to {}, {}: {}\n",
-          cx, cz, structuresTag->toSnbt({})
-      );
+      if (!startsTag->empty()) {
+        std::cout << std::format(
+            "Wrote structures tag to {}, {}: {}\n",
+            cx, cz, structuresTag->toSnbt({})
+        );
+      }
     }
   }
 

@@ -29,6 +29,7 @@ constexpr std::u8string_view FeatureName(StructureType type) {
   //   in Level.Structure.Starts.{FeatureName} and Level.Structure.References.{FeatureName}.
   //   Structure start "id" field does use "minecraft:" prefix.
   // 1.18+: chunk structure data uses identifier with "minecraft:" namespace prefix
+  //   v2970 StructuresBecomeConfiguredFix converts structures to use prefix
   switch (type) {
     case StructureType::BuriedTreasure: return u8"buried_treasure";
     case StructureType::DesertPyramid: return u8"desert_pyramid";
@@ -55,7 +56,10 @@ enum class StructurePieceType {
   // ocean monument building seems to be the only ocean monument piece saved in LCE and Java 1.12.2
   OMB,
 
+  TeJP, // jungle pyramid
+  Iglu, // igloo
   TeSH, // swamp hut
+  TeDP, // desert pyramid
 
   NeBCr,   // BridgeCrossing
   NeBEF,   // BridgeEndFiller
@@ -79,7 +83,10 @@ constexpr std::u8string_view PieceId(StructurePieceType piece) {
   switch (piece) {
   case StructurePieceType::OMB: return u8"minecraft:omb";
 
+  case StructurePieceType::TeJP: return u8"minecraft:tejp";
+  case StructurePieceType::Iglu: return u8"minecraft:iglu";
   case StructurePieceType::TeSH: return u8"minecraft:tesh";
+  case StructurePieceType::TeDP: return u8"minecraft:tedp";
 
   case StructurePieceType::NeBCr: return u8"minecraft:nebcr";
   case StructurePieceType::NeBEF: return u8"minecraft:nebef";
