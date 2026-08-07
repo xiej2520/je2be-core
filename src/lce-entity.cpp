@@ -77,6 +77,7 @@ public:
     t[u8"villager_golem"] = u8"iron_golem";      // tu12, tu19, tu31, tu43, tu46, tu54, tu69, tu75
     t[u8"vindication_illager"] = u8"vindicator"; // tu54, tu69, tu75
     t[u8"wither_boss"] = u8"wither";             // tu19, tu31, tu43, tu46
+    t[u8"xp_orb"] = u8"experience_orb";
     t[u8"zombie_pigman"] = u8"zombified_piglin"; // tu54, tu69, tu75
     return ret.release();
   }
