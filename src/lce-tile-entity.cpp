@@ -292,9 +292,7 @@ public:
       // TU0
       auto dataJ = Compound();
       auto idJ = ctx.fEntityNameMigrator(*entityId);
-      auto entity = Compound();
-      entity->set(u8"id", idJ);
-      dataJ->set(u8"entity", entity);
+      dataJ->set(u8"id", idJ);
       out->set(u8"SpawnData", dataJ);
 
       CopyShortValues(in, *out, {{u8"Delay"}});
@@ -303,9 +301,7 @@ public:
         auto dataJ = Compound();
         if (auto idB = dataB->string(u8"id"); idB) {
           auto idJ = ctx.fEntityNameMigrator(*idB);
-          auto entity = Compound();
-          entity->set(u8"id", idJ);
-          dataJ->set(u8"entity", entity);
+          dataJ->set(u8"id", idJ);
         }
         out->set(u8"SpawnData", dataJ);
       }
