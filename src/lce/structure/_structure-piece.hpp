@@ -146,7 +146,7 @@ struct StructurePiece {
   virtual ~StructurePiece() = default;
   virtual CompoundTagPtr Convert() const;
 
-  static std::unique_ptr<StructurePiece> ExtractPiece(std::span<const unsigned char> bytes, size_t &off);
+  static std::unique_ptr<StructurePiece> ExtractPiece(std::span<const u8> bytes, size_t &off);
 };
 
 struct TemplePiece : StructurePiece {
@@ -194,8 +194,31 @@ struct StructureFeature {
   
   CompoundTagPtr Convert() const;
 
-  static std::optional<StructureFeature> Extract(std::span<const unsigned char> bytes);
+  static std::optional<StructureFeature> Extract(std::span<const u8> bytes);
 };
+
+static i32 readI32BE(std::span<const u8> bytes, size_t *off) {
+  assert(*off + 4 <= bytes.size());
+  i32 value = static_cast<i32>(
+      static_cast<u32>(bytes[*off]) << 24 |
+      static_cast<u32>(bytes[*off + 1]) << 16 |
+      static_cast<u32>(bytes[*off + 2]) << 8 |
+      static_cast<u32>(bytes[*off + 3])
+  );
+  *off += 4;
+  return value;
+}
+
+static Volume readBB(std::span<const u8> bytes, size_t *off) {
+  std::array<i32, 6> result{};
+  for (i32 &i : result) {
+    i = readI32BE(bytes, off);
+  }
+  return Volume{
+    Pos3i{result[0], result[1], result[2]},
+    Pos3i{result[3], result[4], result[5]}
+  };
+}
 
 #include <iostream>
 
