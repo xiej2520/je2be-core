@@ -90,6 +90,8 @@ enum class StructurePieceType {
   NeRC,    // RoomCrossing
   NeSR,    // StairsRoom
   NeStart, // StartPiece
+  
+  ECP,     // EndCityPiece
 };
 
 extern const std::unordered_map<std::u8string, StructurePieceType> sPieceType;
@@ -134,6 +136,7 @@ constexpr std::u8string_view PieceId(StructurePieceType piece) {
   case StructurePieceType::NeSR: return u8"minecraft:nesr";
   case StructurePieceType::NeStart: return u8"minecraft:nestart";
 
+  case StructurePieceType::ECP: return u8"ecp";
   default: return u8"INVALID";
   }
 }
@@ -185,6 +188,21 @@ struct StrongholdPiece : StructurePiece {
     Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
     i32 entryDoor,
     CompoundTagPtr data
+  );
+
+  CompoundTagPtr Convert() const override;
+};
+
+// EndCity structures store 0-length string for id instead of "EndCity",
+// and GD is a random Int
+struct EndCityPiece : StructurePiece {
+  i32 fTPX;
+  i32 fTPY;
+  i32 fTPZ;
+  // LCE doesn't store "Rot", "OW", or "Template" fields for end cities
+  EndCityPiece(
+    Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
+    i32 tpx, i32 tpy, i32 tpz
   );
 
   CompoundTagPtr Convert() const override;

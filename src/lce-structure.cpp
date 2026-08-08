@@ -46,6 +46,8 @@ const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
   {u8"NeRC", StructurePieceType::NeRC},
   {u8"NeSR", StructurePieceType::NeSR},
   {u8"NeStart", StructurePieceType::NeStart},
+
+  {u8"ECP", StructurePieceType::ECP},
 };
 
 std::shared_ptr<IntArrayTag> toBoundingBox(const Volume &volume) {
@@ -122,17 +124,17 @@ static std::optional<StructureFeature> Extract(std::span<const u8> bytes, Struct
     }
     pieces.push_back(std::move(piece));
   }
-  if (pieces.size() == 0) {
-    return std::nullopt;
-  }
 
-  switch (pieces[0]->fId) {
-  case StructurePieceType::TeJP: type = StructureType::JungleTemple; break;
-  case StructurePieceType::Iglu: type = StructureType::Igloo; break;
-  case StructurePieceType::TeSH: type = StructureType::SwampHut; break;
-  case StructurePieceType::TeDP: type = StructureType::DesertPyramid; break;
-  default:
-    break;
+  // pieces should always be > 0, but allow it for now in case we can't parse all children
+  if (pieces.size() != 0) {
+    switch (pieces[0]->fId) {
+    case StructurePieceType::TeJP: type = StructureType::JungleTemple; break;
+    case StructurePieceType::Iglu: type = StructureType::Igloo; break;
+    case StructurePieceType::TeSH: type = StructureType::SwampHut; break;
+    case StructurePieceType::TeDP: type = StructureType::DesertPyramid; break;
+    default:
+      break;
+    }
   }
 
   StructureFeature start{ type, chunkX, chunkZ, bb, std::move(pieces) };
@@ -201,6 +203,11 @@ CompoundTagPtr StructureFeature::Convert() const {
       // if all pieces are `Iglu` then delete `Children` and set `id: Igloo`
       // Upon load the structure data will be deleted and be replaced with `igloo: { id: "INVALID" }`
       // in vanilla 1.16.5 :shrug:
+      out->erase(u8"Children");
+      break;
+    case StructureType::EndCity:
+      // LCE doesn't included "Template", "Rot", or "OW" fields, so guessing them for pieces will
+      // cause them to be completely misaligned. Just delete Children for now and keep the outer bounding box.
       out->erase(u8"Children");
       break;
       default:
@@ -417,6 +424,19 @@ public:
       }
       return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, data);
     }
+    case StructurePieceType::ECP: {
+      i32 tpx, tpy, tpz;
+      if (!reader.read(&tpx)) {
+        return nullptr;
+      }
+      if (!reader.read(&tpy)) {
+        return nullptr;
+      }
+      if (!reader.read(&tpz)) {
+        return nullptr;
+      }
+      return std::make_unique<EndCityPiece>(pieceBB, O, GD, id, tpx, tpy, tpz);
+    }
     }
 
     return std::make_unique<StructurePiece>(pieceBB, O, GD, id);
@@ -442,6 +462,12 @@ StrongholdPiece::StrongholdPiece(
 ) : StructurePiece(bb, orientation, generationDepth, id),
   fEntryDoor(entryDoor),
   fData(data) {}
+
+EndCityPiece::EndCityPiece(
+  Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
+  i32 tpx, i32 tpy, i32 tpz
+) : StructurePiece(bb, orientation, generationDepth, id),
+  fTPX(tpx), fTPY(tpy), fTPZ(tpz) {}
 
 CompoundTagPtr StructurePiece::Convert() const {
   auto out = Compound();
@@ -536,6 +562,21 @@ CompoundTagPtr StrongholdPiece::Convert() const {
       out->set(t.first, t.second);
     }
   }
+
+  return out;
+}
+
+CompoundTagPtr EndCityPiece::Convert() const {
+  auto out = StructurePiece::Convert();
+
+  out->set(u8"TPX", Int(fTPX));
+  out->set(u8"TPY", Int(fTPY));
+  out->set(u8"TPZ", Int(fTPZ));
+
+  // LCE doesn't store these fields but Java requires reading them
+  //out->set(u8"Template", String(u8"base_floor"));
+  //out->set(u8"Rot", String(u8"NONE")); // CLOCKWISE_90, CLOCKWISE_180, COUNTERCLOCKWISE_90
+  //out->set(u8"OW", Bool(true)); // overwrite
 
   return out;
 }
