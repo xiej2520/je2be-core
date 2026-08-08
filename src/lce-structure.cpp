@@ -205,12 +205,7 @@ CompoundTagPtr StructureFeature::Convert() const {
       // in vanilla 1.16.5 :shrug:
       out->erase(u8"Children");
       break;
-    case StructureType::EndCity:
-      // LCE doesn't included "Template", "Rot", or "OW" fields, so guessing them for pieces will
-      // cause them to be completely misaligned. Just delete Children for now and keep the outer bounding box.
-      out->erase(u8"Children");
-      break;
-      default:
+    default:
       break;
     }
 
@@ -573,11 +568,82 @@ CompoundTagPtr EndCityPiece::Convert() const {
   out->set(u8"TPY", Int(fTPY));
   out->set(u8"TPZ", Int(fTPZ));
 
-  // LCE doesn't store these fields but Java requires reading them
-  //out->set(u8"Template", String(u8"base_floor"));
-  //out->set(u8"Rot", String(u8"NONE")); // CLOCKWISE_90, CLOCKWISE_180, COUNTERCLOCKWISE_90
-  //out->set(u8"OW", Bool(true)); // overwrite
+  // LCE doesn't store Template, Rot, or OW but Java requires reading them
+  out->set(u8"OW", Bool(false)); // overwrite
 
+  struct TemplateInfo {
+    std::u8string_view name;
+    i32 width;
+    i32 height;
+    i32 depth;
+  };
+
+  // Guess the template and rotation from the sizes of each template
+  static constexpr TemplateInfo templates[] = {
+    {u8"base_floor",           10,  4, 10},
+    {u8"base_roof",            12,  2, 12},
+    {u8"bridge_end",            5,  6,  2},
+    {u8"bridge_gentle_stairs",  5,  7,  8},
+    {u8"bridge_piece",          5,  6,  4},
+    {u8"bridge_steep_stairs",   5,  7,  4},
+    {u8"fat_tower_base",       13,  4, 13},
+    {u8"fat_tower_middle",     13,  8, 13},
+    {u8"fat_tower_top",        17,  6, 17},
+    {u8"second_floor_1",       12,  8, 12},
+    {u8"second_floor_r",       12,  8, 12},
+    {u8"second_roof",          14,  2, 14},
+    {u8"ship",                 13, 24, 29},
+    {u8"third_floor_1",        14,  8, 14},
+    {u8"third_floor_2",        14,  8, 14},
+    {u8"third_roof",           16,  2, 16},
+    {u8"tower_base",            7,  7,  7},
+    {u8"tower_floor",           7,  4,  7},
+    {u8"tower_piece",           7,  4,  7},
+    {u8"tower_top",             9,  5,  9},
+  };
+
+  // Bounding box coordinates are inclusive block coordinates, add 1 for lengths
+  i32 bbWidth  = fBB.fEnd.fX - fBB.fStart.fX + 1;
+  i32 bbHeight = fBB.fEnd.fY - fBB.fStart.fY + 1;
+  i32 bbDepth  = fBB.fEnd.fZ - fBB.fStart.fZ + 1;
+
+  // offset caused by template rotation
+  i32 dx = fBB.fStart.fX - fTPX;
+  i32 dz = fBB.fStart.fZ - fTPZ;
+
+  struct Rotation {
+    std::u8string_view name;
+    i32 bbWidth;
+    i32 bbDepth;
+    i32 dx;
+    i32 dz;
+  };
+
+  // Check each rotation to see if StructureTemplate mapped the template to the given bounding box.
+  // LCE bounding boxes seem to be 1 longer on X/Z than template, add 1 here. It works, idk why.
+  for (auto const &t : templates) {
+    const Rotation rotations[] = {
+      {u8"NONE",                  t.width + 1, t.depth + 1,  0,       0},
+      {u8"CLOCKWISE_90",          t.depth + 1, t.width + 1, -t.depth, 0},
+      {u8"CLOCKWISE_180",         t.width + 1, t.depth + 1, -t.width, -t.depth},
+      {u8"COUNTERCLOCKWISE_90",   t.depth + 1, t.width + 1,  0,       -t.width},
+    };
+
+    for (const auto& rotation : rotations) {
+      if (bbWidth != rotation.bbWidth || bbHeight != t.height || bbDepth != rotation.bbDepth
+          || dx != rotation.dx || dz != rotation.dz
+      ) {
+          continue;
+      }
+
+      out->set(u8"Template", String(t.name));
+      out->set(u8"Rot", String(rotation.name));
+      return out;
+    }
+  }
+  std::cout << std::format( "Couldn't identify template/rotation {} {} {}, {} {}", bbWidth, bbHeight, bbDepth, dx, dz ) << std::endl;
+
+  // Couldn't identify the template/rotation, return the piece with TPX/TPY/TPZ.
   return out;
 }
 
