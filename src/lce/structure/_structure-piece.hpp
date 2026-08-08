@@ -191,10 +191,10 @@ struct StrongholdPiece : StructurePiece {
 };
 
 struct StructureFeature {
+  StructureType fType;
   i32 fChunkX;
   i32 fChunkZ;
   Volume fBoundingBox;
-  StructureType fType;
   std::vector<std::unique_ptr<StructurePiece>> fPieces;
   std::vector<Pos2i> fProcessed; // monuments only
 
@@ -206,7 +206,7 @@ struct StructureFeature {
   
   CompoundTagPtr Convert() const;
 
-  static std::optional<StructureFeature> Extract(std::span<const u8> bytes);
+  static std::optional<StructureFeature> Extract(std::span<const u8> bytes, StructureType type);
 };
 
 bool readBB(mcfile::stream::InputStreamReader& reader, Volume& out);

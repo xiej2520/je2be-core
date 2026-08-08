@@ -3,6 +3,7 @@
 #include "mcfile/encoding.hpp"
 #include "mcfile/stream/byte-stream.hpp"
 #include "mcfile/stream/input-stream-reader.hpp"
+#include <algorithm>
 #include <memory>
 #include <optional>
 
@@ -47,6 +48,18 @@ const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
   {u8"NeStart", StructurePieceType::NeStart},
 };
 
+std::shared_ptr<IntArrayTag> toBoundingBox(const Volume &volume) {
+  auto const &start = volume.fStart;
+  auto const &end = volume.fEnd;
+
+  std::vector<i32> values {
+    start.fX, start.fY, start.fZ,
+    end.fX, end.fY, end.fZ,
+  };
+
+  return std::make_shared<IntArrayTag>(values);
+}
+
 StructureFeature::StructureFeature(StructureType type, i32 chunkX, i32 chunkZ, Volume bb, std::vector<std::unique_ptr<StructurePiece>> pieces)
   : fType{type}, fChunkX{chunkX}, fChunkZ{chunkZ}, fBoundingBox{std::move(bb)}, fPieces(std::move(pieces)) {}
 
@@ -60,7 +73,13 @@ class StructureFeature::Impl {
 
 public:
 
-static std::optional<StructureFeature> Extract(std::span<const u8> bytes) {
+// structure:
+//   id
+//   ChunkX
+//   ChunkZ
+//   Children[]
+//   Processed (Monument only)
+static std::optional<StructureFeature> Extract(std::span<const u8> bytes, StructureType type) {
   std::vector<u8> buffer(bytes.begin(), bytes.end());
   auto stream = std::make_shared<mcfile::stream::ByteStream>(buffer);
   
@@ -82,8 +101,8 @@ static std::optional<StructureFeature> Extract(std::span<const u8> bytes) {
     return std::nullopt;
   }
 
-  Volume featureBB{{0, 0, 0}, {0, 0, 0}};
-  if (!readBB(reader, featureBB)) {
+  Volume bb{{0, 0, 0}, {0, 0, 0}};
+  if (!readBB(reader, bb)) {
     return std::nullopt;
   }
   
@@ -106,12 +125,19 @@ static std::optional<StructureFeature> Extract(std::span<const u8> bytes) {
   if (pieces.size() == 0) {
     return std::nullopt;
   }
-  
-  if (pieces[0]->fId == StructurePieceType::OMB) {
-    StructureFeature start{
-      StructureType::OceanMonument, chunkX, chunkZ,
-      featureBB, std::move(pieces),
-    };
+
+  switch (pieces[0]->fId) {
+  case StructurePieceType::TeJP: type = StructureType::JungleTemple; break;
+  case StructurePieceType::Iglu: type = StructureType::Igloo; break;
+  case StructurePieceType::TeSH: type = StructureType::SwampHut; break;
+  case StructurePieceType::TeDP: type = StructureType::DesertPyramid; break;
+  default:
+    break;
+  }
+
+  StructureFeature start{ type, chunkX, chunkZ, bb, std::move(pieces) };
+
+  if (type == StructureType::OceanMonument) {
     // Ocean Monument has extra `Processed` bytes, if we can't read it then just skip them
     i32 processedLen;
     if (reader.read(&processedLen)) {
@@ -124,60 +150,15 @@ static std::optional<StructureFeature> Extract(std::span<const u8> bytes) {
         start.fProcessed.emplace_back(x, z);
       }
     }
-    return start;
   }
-  
-  StructureType type;
-  switch (pieces[0]->fId) {
-  case StructurePieceType::TeJP: type = StructureType::JungleTemple; break;
-  case StructurePieceType::Iglu: type = StructureType::Igloo; break;
-  case StructurePieceType::TeSH: type = StructureType::SwampHut; break;
-  case StructurePieceType::TeDP: type = StructureType::DesertPyramid; break;
-
-  case StructurePieceType::NeBCr:
-  case StructurePieceType::NeBEF:
-  case StructurePieceType::NeBS:
-  case StructurePieceType::NeCCS:
-  case StructurePieceType::NeCTB:
-  case StructurePieceType::NeCE:
-  case StructurePieceType::NeSCSC:
-  case StructurePieceType::NeSCLT:
-  case StructurePieceType::NeSC:
-  case StructurePieceType::NeSCRT:
-  case StructurePieceType::NeCSR:
-  case StructurePieceType::NeMT:
-  case StructurePieceType::NeRC:
-  case StructurePieceType::NeSR:
-  case StructurePieceType::NeStart:
-    type = StructureType::Fortress;
-    break;
-  case StructurePieceType::OMB:
-  case StructurePieceType::SHCC:
-  case StructurePieceType::SHPR:
-  case StructurePieceType::SH5C:
-  case StructurePieceType::SHLi:
-  case StructurePieceType::SHFC:
-  case StructurePieceType::SHRC:
-  case StructurePieceType::SHS:
-  case StructurePieceType::SHStart:
-  case StructurePieceType::SHSD:
-  case StructurePieceType::SHLT:
-  case StructurePieceType::SHPH:
-  case StructurePieceType::SHRT:
-  case StructurePieceType::SHSSD:
-    type = StructureType::Stronghold;
-    break;
-  }
-
-  StructureFeature start{type, chunkX, chunkZ, featureBB, std::move(pieces) };
   
   return start;
 }
 
 };
 
-std::optional<StructureFeature> StructureFeature::Extract(std::span<const u8> bytes) {
-  return Impl::Extract(bytes);
+std::optional<StructureFeature> StructureFeature::Extract(std::span<const u8> bytes, StructureType type) {
+  return Impl::Extract(bytes, type);
 }
 
 CompoundTagPtr StructureFeature::Convert() const {
@@ -186,10 +167,7 @@ CompoundTagPtr StructureFeature::Convert() const {
   out->set(u8"ChunkZ", Int(fChunkZ));
   out->set(u8"id", String(NamespaceFeatureName(fType)));
   //out->set(u8"references", Int(0)); // not sure what this is used for
-  auto start = fBoundingBox.fStart;
-  auto end = fBoundingBox.fEnd;
-  std::vector<i32> boundingBox{start.fX, start.fY, start.fZ, end.fX, end.fY, end.fZ};
-  out->set(u8"BB", make_shared<IntArrayTag>(boundingBox));
+  out->set(u8"BB", toBoundingBox(fBoundingBox));
 
   auto children = List<Tag::Type::Compound>();
   for (auto const &piece : fPieces) {
@@ -213,9 +191,9 @@ CompoundTagPtr StructureFeature::Convert() const {
     case StructureType::SwampHut: {
       // note: witch hut bounding box is 7x7x9 in 1.8.1+
       // LCE usually has correct size, sometimes broken 8x7x10 boxes idk?
+      //out->set(u8"BB", toBoundingBox(fPieces[0]->fBB));
       break;
     }
-    case StructureType::DesertPyramid: break;
     case StructureType::Igloo:
       // Igloo bounding box is commonly misaligned in Java 1.12/LCE
       //
@@ -225,16 +203,7 @@ CompoundTagPtr StructureFeature::Convert() const {
       // in vanilla 1.16.5 :shrug:
       out->erase(u8"Children");
       break;
-    case StructureType::JungleTemple: break;
-    case StructureType::Fortress: break;
-
-    case StructureType::BuriedTreasure:
-    case StructureType::EndCity:
-    case StructureType::Mineshaft:
-    case StructureType::Stronghold:
-    case StructureType::Village:
-    case StructureType::WoodlandMansion:
-      // TODO
+      default:
       break;
     }
 
@@ -280,12 +249,15 @@ public:
         return nullptr;
       }
 
+      // TODO: the Temple pieces have some bytes after HPos before their specific fields,
+      // that I don't know how to parse. Figure out what rest of bytes mean.
+      // Temples should only have 1 child, so we can skip parsing the rest and just set these bools
+      // to true in the converter.
       switch (id) {
       case StructurePieceType::TeJP:
         // placedMainChest, placedHiddenChest, placedTrap1, placedTrap2 bools after unknown bytes
       case StructurePieceType::Iglu:
         // doesn't have any other fields in Java 1.12, but 1.13 has "Template" and "Rot" fields
-        // TODO: figure out what rest of bytes mean
         break;
       case StructurePieceType::TeSH:
         // bool Witch; // assume Witch has been spawned, don't know which byte this is
@@ -473,12 +445,9 @@ StrongholdPiece::StrongholdPiece(
 
 CompoundTagPtr StructurePiece::Convert() const {
   auto out = Compound();
-  auto start = fBB.fStart;
-  auto end = fBB.fEnd;
   // sometimes child bounding box can be outside structure bounding box (e.g. witch huts),
   // fixed at some point between Java 1.13 and 1.15
-  std::vector<i32> boundingBox{start.fX, start.fY, start.fZ, end.fX, end.fY, end.fZ};
-  out->set(u8"BB", make_shared<IntArrayTag>(boundingBox));
+  out->set(u8"BB", toBoundingBox(fBB));
   out->set(u8"GD", Int(fGenerationDepth));
   out->set(u8"O", Int(fOrientation));
   out->set(u8"id", String(PieceId(fId)));
@@ -555,15 +524,17 @@ CompoundTagPtr FortressPiece::Convert() const {
 CompoundTagPtr StrongholdPiece::Convert() const {
   auto out = StructurePiece::Convert();
 
-  constexpr std::u8string_view entryDoors[] = {
+  constexpr std::array<std::u8string_view, 4> entryDoors = {
     u8"OPENING",
     u8"WOOD_DOOR",
     u8"GRATES",
     u8"IRON_DOOR",
   };
-  out->set(u8"EntryDoor", String(entryDoors[fEntryDoor >= 0 && fEntryDoor <= 3 ? fEntryDoor : 0]));
-  for (auto &t : *fData) {
-    out->set(t.first, t.second);
+  out->set(u8"EntryDoor", String(entryDoors[std::clamp(fEntryDoor, 0, 3)]));
+  if (fData) {
+    for (auto const &t : *fData) {
+      out->set(t.first, t.second);
+    }
   }
 
   return out;

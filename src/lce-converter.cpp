@@ -23,6 +23,7 @@
 #include "lce/_savegame.hpp"
 #include "lce/_tile-entity.hpp"
 #include "lce/_world.hpp"
+#include "lce/structure/_structure-piece.hpp"
 #include "mcfile/dimension.hpp"
 #include "xbox360/_save-bin.hpp"
 
@@ -645,36 +646,24 @@ private:
       }
       auto fileNameString = it->path().filename().u8string();
       
-      if (fileNameString == u8"Fortress.dat") {
+      static const std::unordered_map<std::u8string, std::pair<mcfile::Dimension, StructureType>> structureFiles = {
+        {u8"Fortress.dat", {mcfile::Dimension::Nether, StructureType::Fortress}},
+        {u8"Monument.dat", {mcfile::Dimension::Overworld, StructureType::OceanMonument}},
+        {u8"StrongHold.dat", {mcfile::Dimension::Overworld, StructureType::Stronghold}},
+        // default Temple to SwampHut, parse from piece
+        {u8"Temple.dat", {mcfile::Dimension::Overworld, StructureType::SwampHut}},
+        // TODO Buried Treasure, EndCity, Mansion, Mineshaft, Ocean Ruin, Village
+      };
+      auto sIt = structureFiles.find(fileNameString);
+      if (sIt != structureFiles.end()) {
         auto inStream = make_shared<mcfile::stream::GzFileInputStream>(it->path());
         auto inRoot = CompoundTag::Read(inStream, mcfile::Encoding::Java);
         inStream.reset();
+
         if (inRoot) {
-          ctx.fStructures->ExtractStructures(*inRoot, mcfile::Dimension::Nether);
-        }
-      } else if (fileNameString == u8"Monument.dat") {
-        auto inStream = make_shared<mcfile::stream::GzFileInputStream>(it->path());
-        auto inRoot = CompoundTag::Read(inStream, mcfile::Encoding::Java);
-        inStream.reset();
-        if (inRoot) {
-          ctx.fStructures->ExtractStructures(*inRoot, mcfile::Dimension::Overworld);
-        }
-      } else if (fileNameString == u8"Temple.dat") {
-        auto inStream = make_shared<mcfile::stream::GzFileInputStream>(it->path());
-        auto inRoot = CompoundTag::Read(inStream, mcfile::Encoding::Java);
-        inStream.reset();
-        if (inRoot) {
-          ctx.fStructures->ExtractStructures(*inRoot, mcfile::Dimension::Overworld);
-        }
-      } else if (fileNameString == u8"StrongHold.dat") {
-        auto inStream = make_shared<mcfile::stream::GzFileInputStream>(it->path());
-        auto inRoot = CompoundTag::Read(inStream, mcfile::Encoding::Java);
-        inStream.reset();
-        if (inRoot) {
-          ctx.fStructures->ExtractStructures(*inRoot, mcfile::Dimension::Overworld);
+          ctx.fStructures->ExtractStructures(*inRoot, sIt->second.first, sIt->second.second);
         }
       }
-      // TODO Buried Treasure, EndCity, Mansion, Mineshaft, Ocean Ruin, Village
     }
     
     return Status::Ok();

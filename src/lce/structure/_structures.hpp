@@ -57,7 +57,7 @@ public:
     return out;
   }
 
-  void ExtractStructures(CompoundTag const &in, mcfile::Dimension dim) {
+  void ExtractStructures(CompoundTag const &in, mcfile::Dimension dim, StructureType type) {
     auto data = in.compoundTag(u8"data");
     if (!data) {
       return;
@@ -79,7 +79,7 @@ public:
       auto const [_x, _z] = *coords;
       // ignore chunk coords key, they are unused in Java as well. Use ChunkX, ChunkZ in tag.
       
-      auto start = StructureFeature::Extract(bytes);
+      auto start = StructureFeature::Extract(bytes, type);
       if (start.has_value()) {
         std::cout << start.value() << std::endl;
 
