@@ -78,31 +78,7 @@ enum class StructurePieceType {
   NeStart, // StartPiece
 };
 
-static const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
-  {u8"OMB", StructurePieceType::OMB},
-
-  {u8"TeJP", StructurePieceType::TeJP},
-  {u8"Iglu", StructurePieceType::Iglu},
-  {u8"TeSH", StructurePieceType::TeSH},
-  {u8"TeDP", StructurePieceType::TeDP},
-
-  {u8"NeBCr", StructurePieceType::NeBCr},
-  {u8"NeBEF", StructurePieceType::NeBEF},
-  {u8"NeBS", StructurePieceType::NeBS},
-  {u8"NeCCS", StructurePieceType::NeCCS},
-  {u8"NeCTB", StructurePieceType::NeCTB},
-  {u8"NeCE", StructurePieceType::NeCE},
-  {u8"NeSCSC", StructurePieceType::NeSCSC},
-  {u8"NeSCLT", StructurePieceType::NeSCLT},
-  {u8"NeSC", StructurePieceType::NeSC},
-  {u8"NeSCRT", StructurePieceType::NeSCRT},
-  {u8"NeCSR", StructurePieceType::NeCSR},
-  {u8"NeMT", StructurePieceType::NeMT},
-  {u8"NeRC", StructurePieceType::NeRC},
-  {u8"NeSR", StructurePieceType::NeSR},
-  {u8"NeStart", StructurePieceType::NeStart},
-};
-
+extern const std::unordered_map<std::u8string, StructurePieceType> sPieceType;
 
 // namespaced structure pieces are registered in lowercase in 1.14+
 constexpr std::u8string_view PieceId(StructurePieceType piece) {
@@ -133,13 +109,13 @@ constexpr std::u8string_view PieceId(StructurePieceType piece) {
   default: return u8"INVALID";
   }
 }
+
 struct StructurePiece {
   Volume fBB;
   i32 fOrientation;
   i32 fGenerationDepth;
   StructurePieceType fId;
-  StructurePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id) :
-    fBB(bb), fOrientation{orientation}, fGenerationDepth{generationDepth}, fId(id) {}
+  StructurePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id);
 
   class Impl;
 
@@ -154,9 +130,7 @@ struct TemplePiece : StructurePiece {
   i32 fHeight;
   i32 fDepth;
   i32 fHPos;  // y level of surface the structure was moved to, or -1 if not moved
-  TemplePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, i32 width, i32 height, i32 depth, i32 hPos)
-  : StructurePiece(bb, orientation, generationDepth, id),
-    fWidth{width}, fHeight{height}, fDepth{depth}, fHPos{hPos} {}
+  TemplePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, i32 width, i32 height, i32 depth, i32 hPos);
 
   class Impl;
 
@@ -168,8 +142,7 @@ struct FortressPiece : StructurePiece {
   std::optional<i32> fSeed;
   std::optional<bool> fChest;
 
-  FortressPiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, std::optional<bool> mob, std::optional<i32> seed, std::optional<bool> chest)
-  : StructurePiece(bb, orientation, generationDepth, id), fMob{mob}, fSeed{seed}, fChest{chest} {}
+  FortressPiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, std::optional<bool> mob, std::optional<i32> seed, std::optional<bool> chest);
 
   CompoundTagPtr Convert() const override;
 };
@@ -182,13 +155,9 @@ struct StructureFeature {
   std::vector<std::unique_ptr<StructurePiece>> fPieces;
   std::vector<Pos2i> fProcessed; // monuments only
 
-  StructureFeature(StructureType type, i32 chunkX, i32 chunkZ, Volume bb, std::vector<std::unique_ptr<StructurePiece>> pieces = {})
-  : fType{type}, fChunkX{chunkX}, fChunkZ{chunkZ}, fBoundingBox{std::move(bb)}, fPieces(std::move(pieces)) {}
+  StructureFeature(StructureType type, i32 chunkX, i32 chunkZ, Volume bb, std::vector<std::unique_ptr<StructurePiece>> pieces = {});
 
-  StructureFeature(StructureType type, i32 chunkX, i32 chunkZ, Volume bb, std::unique_ptr<StructurePiece> piece)
-  : fType{type}, fChunkX{chunkX}, fChunkZ{chunkZ}, fBoundingBox{std::move(bb)}, fPieces() {
-    fPieces.emplace_back(std::move(piece));
-  }
+  StructureFeature(StructureType type, i32 chunkX, i32 chunkZ, Volume bb, std::unique_ptr<StructurePiece> piece);
   
   class Impl;
   
@@ -197,21 +166,7 @@ struct StructureFeature {
   static std::optional<StructureFeature> Extract(std::span<const u8> bytes);
 };
 
-static bool readBB(mcfile::stream::InputStreamReader& reader, Volume& out) {
-  i32 x1, y1, z1, x2, y2, z2;
-
-  if (!reader.read(&x1) || !reader.read(&y1) || !reader.read(&z1) ||
-      !reader.read(&x2) || !reader.read(&y2) || !reader.read(&z2)) {
-    return false;
-  }
-
-  out = Volume{
-    Pos3i{x1, y1, z1},
-    Pos3i{x2, y2, z2},
-  };
-
-  return true;
-}
+bool readBB(mcfile::stream::InputStreamReader& reader, Volume& out);
 
 #include <iostream>
 

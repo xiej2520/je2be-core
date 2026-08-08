@@ -7,6 +7,39 @@
 
 namespace je2be::lce {
 
+const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
+  {u8"OMB", StructurePieceType::OMB},
+
+  {u8"TeJP", StructurePieceType::TeJP},
+  {u8"Iglu", StructurePieceType::Iglu},
+  {u8"TeSH", StructurePieceType::TeSH},
+  {u8"TeDP", StructurePieceType::TeDP},
+
+  {u8"NeBCr", StructurePieceType::NeBCr},
+  {u8"NeBEF", StructurePieceType::NeBEF},
+  {u8"NeBS", StructurePieceType::NeBS},
+  {u8"NeCCS", StructurePieceType::NeCCS},
+  {u8"NeCTB", StructurePieceType::NeCTB},
+  {u8"NeCE", StructurePieceType::NeCE},
+  {u8"NeSCSC", StructurePieceType::NeSCSC},
+  {u8"NeSCLT", StructurePieceType::NeSCLT},
+  {u8"NeSC", StructurePieceType::NeSC},
+  {u8"NeSCRT", StructurePieceType::NeSCRT},
+  {u8"NeCSR", StructurePieceType::NeCSR},
+  {u8"NeMT", StructurePieceType::NeMT},
+  {u8"NeRC", StructurePieceType::NeRC},
+  {u8"NeSR", StructurePieceType::NeSR},
+  {u8"NeStart", StructurePieceType::NeStart},
+};
+
+StructureFeature::StructureFeature(StructureType type, i32 chunkX, i32 chunkZ, Volume bb, std::vector<std::unique_ptr<StructurePiece>> pieces)
+  : fType{type}, fChunkX{chunkX}, fChunkZ{chunkZ}, fBoundingBox{std::move(bb)}, fPieces(std::move(pieces)) {}
+
+StructureFeature::StructureFeature(StructureType type, i32 chunkX, i32 chunkZ, Volume bb, std::unique_ptr<StructurePiece> piece)
+  : fType{type}, fChunkX{chunkX}, fChunkZ{chunkZ}, fBoundingBox{std::move(bb)}, fPieces() {
+    fPieces.emplace_back(std::move(piece));
+}
+
 class StructureFeature::Impl {
   Impl() = delete;
 
@@ -182,6 +215,9 @@ CompoundTagPtr StructureFeature::Convert() const {
   return out;
 }
 
+StructurePiece::StructurePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id) :
+  fBB(bb), fOrientation{orientation}, fGenerationDepth{generationDepth}, fId(id) {}
+
 class StructurePiece::Impl {
   Impl() = delete;
 
@@ -289,6 +325,12 @@ std::unique_ptr<StructurePiece> StructurePiece::ExtractPiece(mcfile::stream::Inp
   return Impl::ExtractPiece(reader);
 }
 
+TemplePiece::TemplePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, i32 width, i32 height, i32 depth, i32 hPos)
+  : StructurePiece(bb, orientation, generationDepth, id), fWidth{width}, fHeight{height}, fDepth{depth}, fHPos{hPos} {}
+
+FortressPiece::FortressPiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, std::optional<bool> mob, std::optional<i32> seed, std::optional<bool> chest)
+  : StructurePiece(bb, orientation, generationDepth, id), fMob{mob}, fSeed{seed}, fChest{chest} {}
+
 CompoundTagPtr StructurePiece::Convert() const {
   auto out = Compound();
   auto start = fBB.fStart;
@@ -371,6 +413,22 @@ CompoundTagPtr FortressPiece::Convert() const {
   default: break;
   }
   return out;
+}
+
+bool readBB(mcfile::stream::InputStreamReader& reader, Volume& out) {
+  i32 x1, y1, z1, x2, y2, z2;
+
+  if (!reader.read(&x1) || !reader.read(&y1) || !reader.read(&z1) ||
+      !reader.read(&x2) || !reader.read(&y2) || !reader.read(&z2)) {
+    return false;
+  }
+
+  out = Volume{
+    Pos3i{x1, y1, z1},
+    Pos3i{x2, y2, z2},
+  };
+
+  return true;
 }
 
 } // namespace je2be::lce
