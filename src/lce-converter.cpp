@@ -666,8 +666,15 @@ private:
         if (inRoot) {
           ctx.fStructures->ExtractStructures(*inRoot, mcfile::Dimension::Overworld);
         }
+      } else if (fileNameString == u8"StrongHold.dat") {
+        auto inStream = make_shared<mcfile::stream::GzFileInputStream>(it->path());
+        auto inRoot = CompoundTag::Read(inStream, mcfile::Encoding::Java);
+        inStream.reset();
+        if (inRoot) {
+          ctx.fStructures->ExtractStructures(*inRoot, mcfile::Dimension::Overworld);
+        }
       }
-      // TODO Buried Treasure, EndCity, Mansion, Mineshaft, Ocean Ruin, StrongHold, Village
+      // TODO Buried Treasure, EndCity, Mansion, Mineshaft, Ocean Ruin, Village
     }
     
     return Status::Ok();

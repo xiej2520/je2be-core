@@ -179,40 +179,12 @@ struct FortressPiece : StructurePiece {
 
 struct StrongholdPiece : StructurePiece {
   i32 fEntryDoor;
-  std::optional<bool> fChest; // StrongholdChestCorridor
-  std::optional<bool> fMob;   // StrongholdPortalRoom
-
-  // StrongholdFiveCrossing
-  std::optional<bool> fLeftLow;
-  std::optional<bool> fLeftHigh;
-  std::optional<bool> fRightLow;
-  std::optional<bool> fRightHigh;
-
-  std::optional<bool> fTall; // StrongholdLibrary
-  std::optional<i32> fSteps; // StrongholdFillerCorridor
-  std::optional<i32> fType;  // StrongholdRoomCrossing
-
-  std::optional<bool> fSource; // StrongholdStairsDown
-
-  // StrongholdStraight
-  std::optional<bool> fLeft;
-  std::optional<bool> fRight;
+  CompoundTagPtr fData;
 
   StrongholdPiece(
     Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
     i32 entryDoor,
-    std::optional<bool> chest,
-    std::optional<bool> mob,
-    std::optional<bool> leftLow,
-    std::optional<bool> leftHigh,
-    std::optional<bool> rightLow,
-    std::optional<bool> rightHigh,
-    std::optional<bool> tall,
-    std::optional<i32> steps,
-    std::optional<i32> type,
-    std::optional<bool> source,
-    std::optional<bool> left,
-    std::optional<bool> right
+    CompoundTagPtr data
   );
 
   CompoundTagPtr Convert() const override;

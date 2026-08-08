@@ -151,8 +151,22 @@ static std::optional<StructureFeature> Extract(std::span<const u8> bytes) {
   case StructurePieceType::NeStart:
     type = StructureType::Fortress;
     break;
-  default:
-    return std::nullopt;
+  case StructurePieceType::OMB:
+  case StructurePieceType::SHCC:
+  case StructurePieceType::SHPR:
+  case StructurePieceType::SH5C:
+  case StructurePieceType::SHLi:
+  case StructurePieceType::SHFC:
+  case StructurePieceType::SHRC:
+  case StructurePieceType::SHS:
+  case StructurePieceType::SHStart:
+  case StructurePieceType::SHSD:
+  case StructurePieceType::SHLT:
+  case StructurePieceType::SHPH:
+  case StructurePieceType::SHRT:
+  case StructurePieceType::SHSSD:
+    type = StructureType::Stronghold;
+    break;
   }
 
   StructureFeature start{type, chunkX, chunkZ, featureBB, std::move(pieces) };
@@ -339,88 +353,98 @@ public:
     case StructurePieceType::SHPH:
     case StructurePieceType::SHRT:
     case StructurePieceType::SHSSD: {
-      if (i32 entryDoor; reader.read(&entryDoor)) {
-        switch (id) {
-        case StructurePieceType::SHCC:
-          if (u8 b; reader.read(&b)) {
-            bool chest = static_cast<bool>(b);
-            return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, chest, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
-          }
-          return nullptr;
-        case StructurePieceType::SHPR:
-          if (u8 b; reader.read(&b)) {
-            bool mob = static_cast<bool>(b);
-            return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, std::nullopt, mob, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
-          }
-          return nullptr;
-        case StructurePieceType::SH5C: {
-          u8 b;
-          bool leftLow, leftHigh, rightLow, rightHigh;
-          if (!reader.read(&b)) {
-            return nullptr;
-          }
-          leftLow = static_cast<bool>(b);
-          if (!reader.read(&b)) {
-            return nullptr;
-          }
-          leftHigh = static_cast<bool>(b);
-          if (!reader.read(&b)) {
-            return nullptr;
-          }
-          rightLow = static_cast<bool>(b);
-          if (!reader.read(&b)) {
-            return nullptr;
-          }
-          rightHigh = static_cast<bool>(b);
-          return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, std::nullopt, std::nullopt, leftLow, leftHigh, rightLow, rightHigh, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
-        }
-        case StructurePieceType::SHLi:
-          if (u8 b; reader.read(&b)) {
-            bool tall = static_cast<bool>(b);
-            return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, tall, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
-          }
-          return nullptr;
-        case StructurePieceType::SHFC:
-          if (i32 steps; reader.read(&steps)) {
-            return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, steps, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
-          }
-          return nullptr;
-        case StructurePieceType::SHRC:
-          if (i32 type; reader.read(&type)) {
-            return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, type, std::nullopt, std::nullopt, std::nullopt);
-          }
-          return nullptr;
-        case StructurePieceType::SHSD:
-          if (u8 b; reader.read(&b)) {
-            bool source = static_cast<bool>(b);
-            return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, source, std::nullopt, std::nullopt);
-          }
-          return nullptr;
-        case StructurePieceType::SHS: {
-          u8 b;
-          bool left, right;
-          if (!reader.read(&b)) {
-            return nullptr;
-          }
-          left = static_cast<bool>(b);
-          if (!reader.read(&b)) {
-            return nullptr;
-          }
-          right = static_cast<bool>(b);
-          return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, left, right);
-        }
-        case StructurePieceType::SHStart:
-        case StructurePieceType::SHLT:
-        case StructurePieceType::SHPH:
-        case StructurePieceType::SHRT:
-        case StructurePieceType::SHSSD:
-          break;
-        default: return nullptr;
-        }
+      i32 entryDoor;
+      if (!reader.read(&entryDoor)) {
+        return nullptr;
       }
-      return nullptr;
+      auto data = Compound();
+
+      switch (id) {
+      case StructurePieceType::SHCC: { // StrongholdChestCorridor
+        u8 b;
+        if (!reader.read(&b)) {
+          return nullptr;
+        }
+        bool chest = static_cast<bool>(b);
+        data->set(u8"Chest", Bool(chest));
+        break;
+      }
+      case StructurePieceType::SHPR: { // StrongholdPortalRoom
+        u8 b;
+        if (!reader.read(&b)) {
+          return nullptr;
+        }
+        bool mob = static_cast<bool>(b);
+        data->set(u8"Mob", Bool(mob));
+        break;
+      }
+      case StructurePieceType::SH5C: {
+        // StrongholdFiveCrossing
+        u8 b[4];
+        for (int i = 0; i < 4; i++) {
+          if (!reader.read(&b[i])) {
+            return nullptr;
+          }
+        }
+        data->set(u8"leftLow", Bool(b[0]));
+        data->set(u8"leftHigh", Bool(b[1]));
+        data->set(u8"rightLow", Bool(b[2]));
+        data->set(u8"rightHigh", Bool(b[3]));
+        break;
+      }
+      case StructurePieceType::SHLi: { // StrongholdLibrary
+        u8 b;
+        if (!reader.read(&b)) {
+          return nullptr;
+        }
+        bool tall = static_cast<bool>(b);
+        data->set(u8"Tall", Bool(tall));
+        break;
+      }
+      case StructurePieceType::SHFC: { // StrongholdFillerCorridor
+        i32 steps;
+        if (!reader.read(&steps)) {
+          return nullptr;
+        }
+        data->set(u8"Steps", Int(steps));
+        break;
+      }
+      case StructurePieceType::SHRC: { // StrongholdRoomCrossing
+        i32 type;
+        if (!reader.read(&type)) {
+          return nullptr;
+        }
+        data->set(u8"Type", Int(type));
+        break;
+      }
+      case StructurePieceType::SHStart: // StrongholdStartPiece
+        // fallthrough
+      case StructurePieceType::SHSD: { // StrongholdStairsDown
+        u8 b;
+        if (!reader.read(&b)) {
+          return nullptr;
+        }
+        bool source = static_cast<bool>(b);
+        data->set(u8"Source", Bool(source));
+        break;
+      }
+      case StructurePieceType::SHS: { // StrongholdStraight
+        u8 b;
+        bool left, right;
+        if (!reader.read(&b)) {
+          return nullptr;
+        }
+        data->set(u8"Left", Bool(static_cast<bool>(b)));
+        if (!reader.read(&b)) {
+          return nullptr;
+        }
+        data->set(u8"Right", Bool(static_cast<bool>(b)));
+        break;
+      }
+      default: break;
+      }
+      return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, data);
     }
-      break;
     }
 
     return std::make_unique<StructurePiece>(pieceBB, O, GD, id);
@@ -442,32 +466,10 @@ FortressPiece::FortressPiece(Volume bb, i32 orientation, i32 generationDepth, St
 StrongholdPiece::StrongholdPiece(
   Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
   i32 entryDoor,
-  std::optional<bool> chest,
-  std::optional<bool> mob,
-  std::optional<bool> leftLow,
-  std::optional<bool> leftHigh,
-  std::optional<bool> rightLow,
-  std::optional<bool> rightHigh,
-  std::optional<bool> tall,
-  std::optional<i32> steps,
-  std::optional<i32> type,
-  std::optional<bool> source,
-  std::optional<bool> left,
-  std::optional<bool> right
+  CompoundTagPtr data
 ) : StructurePiece(bb, orientation, generationDepth, id),
   fEntryDoor(entryDoor),
-  fChest(chest),
-  fMob(mob),
-  fLeftLow(leftLow),
-  fLeftHigh(leftHigh),
-  fRightLow(rightLow),
-  fRightHigh(rightHigh),
-  fTall(tall),
-  fSteps(steps),
-  fType(type),
-  fSource(source),
-  fLeft(left),
-  fRight(right) {}
+  fData(data) {}
 
 CompoundTagPtr StructurePiece::Convert() const {
   auto out = Compound();
@@ -556,80 +558,14 @@ CompoundTagPtr StrongholdPiece::Convert() const {
   constexpr std::u8string_view entryDoors[] = {
     u8"OPENING",
     u8"WOOD_DOOR",
-    u8"GATES",
+    u8"GRATES",
     u8"IRON_DOOR",
   };
   out->set(u8"EntryDoor", String(entryDoors[fEntryDoor >= 0 && fEntryDoor <= 3 ? fEntryDoor : 0]));
+  for (auto &t : *fData) {
+    out->set(t.first, t.second);
+  }
 
-  switch (fId) {
-  case StructurePieceType::SHCC: { // StrongHoldChestCorridor
-    if (fChest.has_value()) {
-      out->set(u8"Chest", Bool(fChest.value()));
-    }
-    break;
-  }
-  case StructurePieceType::SHPR: { // StrongholdPortalRoom
-    if (fMob.has_value()) {
-      out->set(u8"Mob", Bool(fMob.value()));
-    }
-    break;
-  }
-  case StructurePieceType::SH5C: { // StrongholdFiveCrossing
-    if (fLeftLow.has_value()) {
-      out->set(u8"leftLow", Bool(fLeftLow.value()));
-    }
-    if (fLeftHigh.has_value()) {
-      out->set(u8"leftHigh", Bool(fLeftHigh.value()));
-    }
-    if (fRightLow.has_value()) {
-      out->set(u8"rightLow", Bool(fRightLow.value()));
-    }
-    if (fRightHigh.has_value()) {
-      out->set(u8"rightHigh", Bool(fRightHigh.value()));
-    }
-    break;
-  }
-  case StructurePieceType::SHLi: { // StrongholdLibrary
-    if (fTall.has_value()) {
-      out->set(u8"Tall", Bool(fTall.value()));
-    }
-    break;
-  }
-  case StructurePieceType::SHFC: {
-    if (fSteps.has_value()) {
-      out->set(u8"Steps", Int(fSteps.value()));
-    }
-    break;
-  }
-  case StructurePieceType::SHRC: {
-    if (fType.has_value()) {
-      out->set(u8"Type", Int(fType.value()));
-    }
-    break;
-  }
-  case StructurePieceType::SHSD: {
-    if (fSource.has_value()) {
-      out->set(u8"Source", Bool(fSource.value()));
-    }
-    break;
-  }
-  case StructurePieceType::SHS: {
-    if (fLeft.has_value()) {
-      out->set(u8"Left", Bool(fLeft.value()));
-    }
-    if (fRight.has_value()) {
-      out->set(u8"Right", Bool(fRight.value()));
-    }
-    break;
-  }
-  case StructurePieceType::SHStart:
-  case StructurePieceType::SHLT:
-  case StructurePieceType::SHPH:
-  case StructurePieceType::SHRT:
-  case StructurePieceType::SHSSD:
-    break;
-  default: break;
-  }
   return out;
 }
 

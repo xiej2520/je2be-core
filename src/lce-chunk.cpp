@@ -1147,45 +1147,10 @@ private:
       // structure start
       if (s->fChunkX == cx && s->fChunkZ == cz) {
         // there can only be one per chunk
-        switch (s->fType) {
-        case StructureType::Fortress:
-        case StructureType::OceanMonument:
-        case StructureType::SwampHut:
-        case StructureType::DesertPyramid:
-        case StructureType::Igloo:
-        case StructureType::JungleTemple:
-          starts[FeatureName(s->fType)] = s->Convert();
-          break;
-        case StructureType::BuriedTreasure:
-        case StructureType::EndCity:
-        case StructureType::Mineshaft:
-        case StructureType::Stronghold:
-        case StructureType::Village:
-        case StructureType::WoodlandMansion:
-          // TODO
-          break;
-        }
+        starts[FeatureName(s->fType)] = s->Convert();
       }
 
-      // structure reference
-      switch (s->fType) {
-      case StructureType::Fortress:
-      case StructureType::OceanMonument:
-      case StructureType::SwampHut:
-      case StructureType::DesertPyramid:
-      case StructureType::Igloo:
-      case StructureType::JungleTemple:
-        references[FeatureName(s->fType)].insert(LegacyStructures::PackStructureStartsReference(s->fChunkX, s->fChunkZ));
-        break;
-      case StructureType::BuriedTreasure:
-      case StructureType::EndCity:
-      case StructureType::Mineshaft:
-      case StructureType::Stronghold:
-      case StructureType::Village:
-      case StructureType::WoodlandMansion:
-        // TODO
-        break;
-      }
+      references[FeatureName(s->fType)].insert(LegacyStructures::PackStructureStartsReference(s->fChunkX, s->fChunkZ));
     }
 
     for (auto const &[structureKey, structureStart] : starts) {
