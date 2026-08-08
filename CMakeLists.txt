@@ -608,10 +608,10 @@ target_compile_definitions(je2be PUBLIC -DXXH_NAMESPACE=LZ4_)
 #add_executable(b2j example/b2j.cpp ${je2be_header_files})
 #target_link_libraries(b2j ${je2be_exe_link_libraries} cxxopts)
 #target_include_directories(b2j PRIVATE ${pbar_SOURCE_DIR})
-#
-#add_executable(x2j example/x2j.cpp example/lce-progress.hpp ${je2be_header_files})
-#target_link_libraries(x2j ${je2be_exe_link_libraries} cxxopts)
-#target_include_directories(x2j PRIVATE ${pbar_SOURCE_DIR})
+
+add_executable(x2j example/x2j.cpp example/lce-progress.hpp ${je2be_header_files})
+target_link_libraries(x2j ${je2be_exe_link_libraries} cxxopts)
+target_include_directories(x2j PRIVATE ${pbar_SOURCE_DIR})
 
 add_executable(p2j example/p2j.cpp example/lce-progress.hpp ${je2be_header_files})
 target_link_libraries(p2j ${je2be_exe_link_libraries} cxxopts)
