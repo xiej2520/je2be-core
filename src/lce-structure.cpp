@@ -212,8 +212,8 @@ CompoundTagPtr StructureFeature::Convert() const {
   return out;
 }
 
-StructurePiece::StructurePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id) :
-  fBB(bb), fOrientation{orientation}, fGenerationDepth{generationDepth}, fId(id) {}
+StructurePiece::StructurePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, CompoundTagPtr data) :
+  fBB(bb), fOrientation{orientation}, fGenerationDepth{generationDepth}, fId(id), fData(data) {}
 
 class StructurePiece::Impl {
   Impl() = delete;
@@ -235,6 +235,8 @@ public:
     if (!reader.read(&O) || !reader.read(&GD)) {
       return nullptr;
     }
+
+    auto data = Compound();
 
     auto it = sPieceType.find(pieceId);
     if (it == sPieceType.end()) {
@@ -270,7 +272,7 @@ public:
         break;
       default: return nullptr;
       }
-      return std::make_unique<TemplePiece>(pieceBB, O, GD, id, Width, Height, Depth, HPos);
+      return std::make_unique<TemplePiece>(pieceBB, O, GD, id, data, Width, Height, Depth, HPos);
     }
 
     switch (id) {
@@ -281,25 +283,29 @@ public:
     case StructurePieceType::TeDP: break;
 
     case StructurePieceType::NeMT: { // blaze spawner
-      if (u8 b; reader.read(&b)) {
-        bool mob = static_cast<bool>(b);
-        return std::make_unique<FortressPiece>(pieceBB, O, GD, id, mob, std::nullopt, std::nullopt);
+      u8 b;
+      if (!reader.read(&b)) {
+        return nullptr;
       }
-      return nullptr;
+      data->set(u8"Mob", Bool(static_cast<bool>(b)));
+      break;
     }
     case StructurePieceType::NeBEF: {
-      if (i32 seed; reader.read(&seed)) {
-        return std::make_unique<FortressPiece>(pieceBB, O, GD, id, std::nullopt, seed, std::nullopt);
+      i32 seed;
+      if (!reader.read(&seed)) {
+        return nullptr;
       }
-      return nullptr;
+      data->set(u8"Seed", Int(seed));
+      break;
     }
     case StructurePieceType::NeSCLT: // fallthrough
     case StructurePieceType::NeSCRT: {
-      if (u8 b; reader.read(&b)) {
-        bool chest = static_cast<bool>(b);
-        return std::make_unique<FortressPiece>(pieceBB, O, GD, id, std::nullopt, std::nullopt, chest);
+      u8 b;
+      if (!reader.read(&b)) {
+        return nullptr;
       }
-      return nullptr;
+      data->set(u8"Chest", Bool(static_cast<bool>(b)));
+      break;
     }
     case StructurePieceType::NeBCr:
     case StructurePieceType::NeBS:
@@ -312,7 +318,7 @@ public:
     case StructurePieceType::NeRC:
     case StructurePieceType::NeSR:
     case StructurePieceType::NeStart:
-      return std::make_unique<FortressPiece>(pieceBB, O, GD, id, std::nullopt, std::nullopt, std::nullopt);
+      break;
 
     case StructurePieceType::SHCC:
     case StructurePieceType::SHPR:
@@ -331,7 +337,6 @@ public:
       if (!reader.read(&entryDoor)) {
         return nullptr;
       }
-      auto data = Compound();
 
       switch (id) {
       case StructurePieceType::SHCC: { // StrongholdChestCorridor
@@ -417,7 +422,7 @@ public:
       }
       default: break;
       }
-      return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, data);
+      return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, data, entryDoor);
     }
     case StructurePieceType::ECP: {
       i32 tpx, tpy, tpz;
@@ -430,13 +435,11 @@ public:
       if (!reader.read(&tpz)) {
         return nullptr;
       }
-      return std::make_unique<EndCityPiece>(pieceBB, O, GD, id, tpx, tpy, tpz);
+      return std::make_unique<EndCityPiece>(pieceBB, O, GD, id, data, tpx, tpy, tpz);
     }
     }
 
-    return std::make_unique<StructurePiece>(pieceBB, O, GD, id);
-
-    return nullptr;
+    return std::make_unique<StructurePiece>(pieceBB, O, GD, id, data);
   }
 };
 
@@ -444,24 +447,19 @@ std::unique_ptr<StructurePiece> StructurePiece::ExtractPiece(mcfile::stream::Inp
   return Impl::ExtractPiece(reader);
 }
 
-TemplePiece::TemplePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, i32 width, i32 height, i32 depth, i32 hPos)
-  : StructurePiece(bb, orientation, generationDepth, id), fWidth{width}, fHeight{height}, fDepth{depth}, fHPos{hPos} {}
-
-FortressPiece::FortressPiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, std::optional<bool> mob, std::optional<i32> seed, std::optional<bool> chest)
-  : StructurePiece(bb, orientation, generationDepth, id), fMob{mob}, fSeed{seed}, fChest{chest} {}
+TemplePiece::TemplePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, CompoundTagPtr data, i32 width, i32 height, i32 depth, i32 hPos)
+  : StructurePiece(bb, orientation, generationDepth, id, data), fWidth{width}, fHeight{height}, fDepth{depth}, fHPos{hPos} {}
 
 StrongholdPiece::StrongholdPiece(
   Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
-  i32 entryDoor,
-  CompoundTagPtr data
-) : StructurePiece(bb, orientation, generationDepth, id),
-  fEntryDoor(entryDoor),
-  fData(data) {}
+  CompoundTagPtr data, i32 entryDoor
+) : StructurePiece(bb, orientation, generationDepth, id, data),
+  fEntryDoor(entryDoor) {}
 
 EndCityPiece::EndCityPiece(
   Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
-  i32 tpx, i32 tpy, i32 tpz
-) : StructurePiece(bb, orientation, generationDepth, id),
+  CompoundTagPtr data, i32 tpx, i32 tpy, i32 tpz
+) : StructurePiece(bb, orientation, generationDepth, id, data),
   fTPX(tpx), fTPY(tpy), fTPZ(tpz) {}
 
 CompoundTagPtr StructurePiece::Convert() const {
@@ -472,6 +470,13 @@ CompoundTagPtr StructurePiece::Convert() const {
   out->set(u8"GD", Int(fGenerationDepth));
   out->set(u8"O", Int(fOrientation));
   out->set(u8"id", String(PieceId(fId)));
+
+  if (fData) {
+    for (auto const &t : *fData) {
+      out->set(t.first, t.second);
+    }
+  }
+
   return out;
 }
 
@@ -513,35 +518,6 @@ CompoundTagPtr TemplePiece::Convert() const {
   return out;
 }
 
-CompoundTagPtr FortressPiece::Convert() const {
-  auto out = StructurePiece::Convert();
-
-  switch (fId) {
-  case StructurePieceType::NeMT: { // blaze spawner
-    if (fMob.has_value()) {
-      out->set(u8"Mob", Bool(fMob.value()));
-    }
-    break;
-  }
-  case StructurePieceType::NeBEF: { // bridge end filler
-    if (fSeed.has_value()) {
-      out->set(u8"Seed", Int(fSeed.value()));
-    }
-    break;
-  }
-  case StructurePieceType::NeSCLT:
-    // fallthrough
-  case StructurePieceType::NeSCRT: {
-    if (fChest.has_value()) {
-      out->set(u8"Chest", Bool(fChest.value()));
-    }
-    break;
-  }
-  default: break;
-  }
-  return out;
-}
-
 CompoundTagPtr StrongholdPiece::Convert() const {
   auto out = StructurePiece::Convert();
 
@@ -552,11 +528,6 @@ CompoundTagPtr StrongholdPiece::Convert() const {
     u8"IRON_DOOR",
   };
   out->set(u8"EntryDoor", String(entryDoors[std::clamp(fEntryDoor, 0, 3)]));
-  if (fData) {
-    for (auto const &t : *fData) {
-      out->set(t.first, t.second);
-    }
-  }
 
   return out;
 }

@@ -146,7 +146,9 @@ struct StructurePiece {
   i32 fOrientation;
   i32 fGenerationDepth;
   StructurePieceType fId;
-  StructurePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id);
+  // piece-specific
+  CompoundTagPtr fData;
+  StructurePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, CompoundTagPtr data);
 
   class Impl;
 
@@ -161,33 +163,21 @@ struct TemplePiece : StructurePiece {
   i32 fHeight;
   i32 fDepth;
   i32 fHPos;  // y level of surface the structure was moved to, or -1 if not moved
-  TemplePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, i32 width, i32 height, i32 depth, i32 hPos);
+  TemplePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, CompoundTagPtr data,
+    i32 width, i32 height, i32 depth, i32 hPos
+  );
 
   class Impl;
 
   CompoundTagPtr Convert() const override;
 };
 
-struct FortressPiece : StructurePiece {
-  std::optional<bool> fMob;
-  std::optional<i32> fSeed;
-  std::optional<bool> fChest;
-
-  FortressPiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
-    std::optional<bool> mob, std::optional<i32> seed, std::optional<bool> chest
-  );
-
-  CompoundTagPtr Convert() const override;
-};
-
 struct StrongholdPiece : StructurePiece {
   i32 fEntryDoor;
-  CompoundTagPtr fData;
 
   StrongholdPiece(
-    Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
-    i32 entryDoor,
-    CompoundTagPtr data
+    Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, CompoundTagPtr data,
+    i32 entryDoor
   );
 
   CompoundTagPtr Convert() const override;
@@ -202,7 +192,7 @@ struct EndCityPiece : StructurePiece {
   // LCE doesn't store "Rot", "OW", or "Template" fields for end cities
   EndCityPiece(
     Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
-    i32 tpx, i32 tpy, i32 tpz
+    CompoundTagPtr data, i32 tpx, i32 tpy, i32 tpz
   );
 
   CompoundTagPtr Convert() const override;
