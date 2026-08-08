@@ -55,6 +55,8 @@ constexpr std::u8string NamespaceFeatureName(StructureType type) {
 enum class StructurePieceType {
   // ocean monument building seems to be the only ocean monument piece saved in LCE and Java 1.12.2
   OMB,
+  
+  BTP, // BuriedTreasurePiece
 
   TeJP, // jungle pyramid
   Iglu, // igloo
@@ -100,6 +102,8 @@ extern const std::unordered_map<std::u8string, StructurePieceType> sPieceType;
 constexpr std::u8string_view PieceId(StructurePieceType piece) {
   switch (piece) {
   case StructurePieceType::OMB: return u8"minecraft:omb";
+
+  case StructurePieceType::BTP: return u8"minecraft:btp";
 
   case StructurePieceType::TeJP: return u8"minecraft:tejp";
   case StructurePieceType::Iglu: return u8"minecraft:iglu";
@@ -155,7 +159,7 @@ struct StructurePiece {
   virtual ~StructurePiece() = default;
   virtual CompoundTagPtr Convert() const;
 
-  static std::unique_ptr<StructurePiece> ExtractPiece(mcfile::stream::InputStreamReader &reader);
+  static std::unique_ptr<StructurePiece> ExtractPiece(mcfile::stream::InputStreamReader &reader, StructureType type);
 };
 
 struct TemplePiece : StructurePiece {

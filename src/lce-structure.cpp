@@ -1,3 +1,4 @@
+#include "_volume.hpp"
 #include "je2be/nbt.hpp"
 #include "lce/structure/_structure-piece.hpp"
 #include "mcfile/encoding.hpp"
@@ -11,6 +12,8 @@ namespace je2be::lce {
 
 const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
   {u8"OMB", StructurePieceType::OMB},
+
+  {u8"BTP", StructurePieceType::BTP},
 
   {u8"TeJP", StructurePieceType::TeJP},
   {u8"Iglu", StructurePieceType::Iglu},
@@ -116,7 +119,7 @@ static std::optional<StructureFeature> Extract(std::span<const u8> bytes, Struct
   std::vector<std::unique_ptr<StructurePiece>> pieces;
   
   for (size_t i = 0; i < childrenLen; i++) {
-    auto piece = StructurePiece::ExtractPiece(reader);
+    auto piece = StructurePiece::ExtractPiece(reader, type);
     if (!piece) {
       std::cout << "error extracting structure piece in " << std::string(id.begin(), id.end()) << std::endl;
       // invalid piece, stop
@@ -132,6 +135,14 @@ static std::optional<StructureFeature> Extract(std::span<const u8> bytes, Struct
     case StructurePieceType::Iglu: type = StructureType::Igloo; break;
     case StructurePieceType::TeSH: type = StructureType::SwampHut; break;
     case StructurePieceType::TeDP: type = StructureType::DesertPyramid; break;
+    case StructurePieceType::BTP: {
+      // Buried Treasure bounding box seems to be broken (not 1 block, misaligned)
+      // set it to one block here?
+      //Volume block {pieces[0]->fBB.fStart, pieces[0]->fBB.fStart};
+      //bb = block;
+      //pieces[0]->fBB = block;
+      break;
+    }
     default:
       break;
     }
@@ -219,7 +230,7 @@ class StructurePiece::Impl {
   Impl() = delete;
 
 public:
-  static std::unique_ptr<StructurePiece> ExtractPiece(mcfile::stream::InputStreamReader &reader) {
+  static std::unique_ptr<StructurePiece> ExtractPiece(mcfile::stream::InputStreamReader &reader, StructureType type) {
     std::u8string pieceId;
     if (!reader.read(pieceId)) {
       return nullptr;
@@ -238,12 +249,19 @@ public:
 
     auto data = Compound();
 
-    auto it = sPieceType.find(pieceId);
-    if (it == sPieceType.end()) {
-      return nullptr;
+    StructurePieceType id;
+
+    if (type == StructureType::BuriedTreasure) {
+      // Buried Treasure.dat stores these with 0-length ids
+      id = StructurePieceType::BTP;
+    } else {
+      auto it = sPieceType.find(pieceId);
+      if (it == sPieceType.end()) {
+        return nullptr;
+      }
+        id = it->second;
     }
-    auto id = it->second;
-    
+
     if (id == StructurePieceType::TeJP || id == StructurePieceType::Iglu
       || id == StructurePieceType::TeSH || id == StructurePieceType::TeDP) {
       // common ScatteredFeaturePiece fields
@@ -274,9 +292,10 @@ public:
       }
       return std::make_unique<TemplePiece>(pieceBB, O, GD, id, data, Width, Height, Depth, HPos);
     }
-
+    
     switch (id) {
     case StructurePieceType::OMB: break;
+    case StructurePieceType::BTP: break;
     case StructurePieceType::TeJP: break;
     case StructurePieceType::Iglu: break;
     case StructurePieceType::TeSH: break;
@@ -443,8 +462,8 @@ public:
   }
 };
 
-std::unique_ptr<StructurePiece> StructurePiece::ExtractPiece(mcfile::stream::InputStreamReader &reader) {
-  return Impl::ExtractPiece(reader);
+std::unique_ptr<StructurePiece> StructurePiece::ExtractPiece(mcfile::stream::InputStreamReader &reader, StructureType type) {
+  return Impl::ExtractPiece(reader, type);
 }
 
 TemplePiece::TemplePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, CompoundTagPtr data, i32 width, i32 height, i32 depth, i32 hPos)
