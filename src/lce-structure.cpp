@@ -3,6 +3,7 @@
 #include "mcfile/encoding.hpp"
 #include "mcfile/stream/byte-stream.hpp"
 #include "mcfile/stream/input-stream-reader.hpp"
+#include <memory>
 #include <optional>
 
 namespace je2be::lce {
@@ -14,6 +15,20 @@ const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
   {u8"Iglu", StructurePieceType::Iglu},
   {u8"TeSH", StructurePieceType::TeSH},
   {u8"TeDP", StructurePieceType::TeDP},
+
+  {u8"SHCC",     StructurePieceType::SHCC},
+  {u8"SHPR",     StructurePieceType::SHPR},
+  {u8"SH5C",     StructurePieceType::SH5C},
+  {u8"SHLi",     StructurePieceType::SHLi},
+  {u8"SHFC",     StructurePieceType::SHFC},
+  {u8"SHRC",    StructurePieceType::SHRC},
+  {u8"SHS",     StructurePieceType::SHS},
+  {u8"SHStart", StructurePieceType::SHStart},
+  {u8"SHSD",    StructurePieceType::SHSD},
+  {u8"SHLT",    StructurePieceType::SHLT},
+  {u8"SHPH",    StructurePieceType::SHPH},
+  {u8"SHRT",    StructurePieceType::SHRT},
+  {u8"SHSSD",   StructurePieceType::SHSSD},
 
   {u8"NeBCr", StructurePieceType::NeBCr},
   {u8"NeBEF", StructurePieceType::NeBEF},
@@ -168,7 +183,6 @@ CompoundTagPtr StructureFeature::Convert() const {
   }
   out->set(u8"Children", children);
 
-
   switch (fType) {
   case StructureType::OceanMonument: {
       // "Processed" doesn't appear to be used in game code since 1.14
@@ -180,10 +194,6 @@ CompoundTagPtr StructureFeature::Convert() const {
       //  processedTag->push_back(chunkCoordTag);
       //}
       //out->set(u8"Processed", processedTag);
-
-      break;
-    }
-    case StructureType::Fortress: {
       break;
     }
     case StructureType::SwampHut: {
@@ -191,9 +201,7 @@ CompoundTagPtr StructureFeature::Convert() const {
       // LCE usually has correct size, sometimes broken 8x7x10 boxes idk?
       break;
     }
-    case StructureType::BuriedTreasure:
-    case StructureType::DesertPyramid:
-    case StructureType::EndCity:
+    case StructureType::DesertPyramid: break;
     case StructureType::Igloo:
       // Igloo bounding box is commonly misaligned in Java 1.12/LCE
       //
@@ -203,7 +211,11 @@ CompoundTagPtr StructureFeature::Convert() const {
       // in vanilla 1.16.5 :shrug:
       out->erase(u8"Children");
       break;
-    case StructureType::JungleTemple:
+    case StructureType::JungleTemple: break;
+    case StructureType::Fortress: break;
+
+    case StructureType::BuriedTreasure:
+    case StructureType::EndCity:
     case StructureType::Mineshaft:
     case StructureType::Stronghold:
     case StructureType::Village:
@@ -313,6 +325,102 @@ public:
     case StructurePieceType::NeSR:
     case StructurePieceType::NeStart:
       return std::make_unique<FortressPiece>(pieceBB, O, GD, id, std::nullopt, std::nullopt, std::nullopt);
+
+    case StructurePieceType::SHCC:
+    case StructurePieceType::SHPR:
+    case StructurePieceType::SH5C:
+    case StructurePieceType::SHLi:
+    case StructurePieceType::SHFC:
+    case StructurePieceType::SHRC:
+    case StructurePieceType::SHS:
+    case StructurePieceType::SHStart:
+    case StructurePieceType::SHSD:
+    case StructurePieceType::SHLT:
+    case StructurePieceType::SHPH:
+    case StructurePieceType::SHRT:
+    case StructurePieceType::SHSSD: {
+      if (i32 entryDoor; reader.read(&entryDoor)) {
+        switch (id) {
+        case StructurePieceType::SHCC:
+          if (u8 b; reader.read(&b)) {
+            bool chest = static_cast<bool>(b);
+            return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, chest, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
+          }
+          return nullptr;
+        case StructurePieceType::SHPR:
+          if (u8 b; reader.read(&b)) {
+            bool mob = static_cast<bool>(b);
+            return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, std::nullopt, mob, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
+          }
+          return nullptr;
+        case StructurePieceType::SH5C: {
+          u8 b;
+          bool leftLow, leftHigh, rightLow, rightHigh;
+          if (!reader.read(&b)) {
+            return nullptr;
+          }
+          leftLow = static_cast<bool>(b);
+          if (!reader.read(&b)) {
+            return nullptr;
+          }
+          leftHigh = static_cast<bool>(b);
+          if (!reader.read(&b)) {
+            return nullptr;
+          }
+          rightLow = static_cast<bool>(b);
+          if (!reader.read(&b)) {
+            return nullptr;
+          }
+          rightHigh = static_cast<bool>(b);
+          return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, std::nullopt, std::nullopt, leftLow, leftHigh, rightLow, rightHigh, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
+        }
+        case StructurePieceType::SHLi:
+          if (u8 b; reader.read(&b)) {
+            bool tall = static_cast<bool>(b);
+            return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, tall, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
+          }
+          return nullptr;
+        case StructurePieceType::SHFC:
+          if (i32 steps; reader.read(&steps)) {
+            return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, steps, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
+          }
+          return nullptr;
+        case StructurePieceType::SHRC:
+          if (i32 type; reader.read(&type)) {
+            return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, type, std::nullopt, std::nullopt, std::nullopt);
+          }
+          return nullptr;
+        case StructurePieceType::SHSD:
+          if (u8 b; reader.read(&b)) {
+            bool source = static_cast<bool>(b);
+            return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, source, std::nullopt, std::nullopt);
+          }
+          return nullptr;
+        case StructurePieceType::SHS: {
+          u8 b;
+          bool left, right;
+          if (!reader.read(&b)) {
+            return nullptr;
+          }
+          left = static_cast<bool>(b);
+          if (!reader.read(&b)) {
+            return nullptr;
+          }
+          right = static_cast<bool>(b);
+          return std::make_unique<StrongholdPiece>(pieceBB, O, GD, id, entryDoor, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, left, right);
+        }
+        case StructurePieceType::SHStart:
+        case StructurePieceType::SHLT:
+        case StructurePieceType::SHPH:
+        case StructurePieceType::SHRT:
+        case StructurePieceType::SHSSD:
+          break;
+        default: return nullptr;
+        }
+      }
+      return nullptr;
+    }
+      break;
     }
 
     return std::make_unique<StructurePiece>(pieceBB, O, GD, id);
@@ -330,6 +438,36 @@ TemplePiece::TemplePiece(Volume bb, i32 orientation, i32 generationDepth, Struct
 
 FortressPiece::FortressPiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, std::optional<bool> mob, std::optional<i32> seed, std::optional<bool> chest)
   : StructurePiece(bb, orientation, generationDepth, id), fMob{mob}, fSeed{seed}, fChest{chest} {}
+
+StrongholdPiece::StrongholdPiece(
+  Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
+  i32 entryDoor,
+  std::optional<bool> chest,
+  std::optional<bool> mob,
+  std::optional<bool> leftLow,
+  std::optional<bool> leftHigh,
+  std::optional<bool> rightLow,
+  std::optional<bool> rightHigh,
+  std::optional<bool> tall,
+  std::optional<i32> steps,
+  std::optional<i32> type,
+  std::optional<bool> source,
+  std::optional<bool> left,
+  std::optional<bool> right
+) : StructurePiece(bb, orientation, generationDepth, id),
+  fEntryDoor(entryDoor),
+  fChest(chest),
+  fMob(mob),
+  fLeftLow(leftLow),
+  fLeftHigh(leftHigh),
+  fRightLow(rightLow),
+  fRightHigh(rightHigh),
+  fTall(tall),
+  fSteps(steps),
+  fType(type),
+  fSource(source),
+  fLeft(left),
+  fRight(right) {}
 
 CompoundTagPtr StructurePiece::Convert() const {
   auto out = Compound();
@@ -352,7 +490,6 @@ CompoundTagPtr TemplePiece::Convert() const {
   out->set(u8"Height", Int(fHeight));
   out->set(u8"Depth", Int(fDepth));
   out->set(u8"HPos", Int(fHPos));
-  out->set(u8"id", String(PieceId(fId)));
 
   switch (fId) {
   case StructurePieceType::TeJP: {
@@ -387,8 +524,6 @@ CompoundTagPtr TemplePiece::Convert() const {
 CompoundTagPtr FortressPiece::Convert() const {
   auto out = StructurePiece::Convert();
 
-  out->set(u8"id", String(PieceId(fId)));
-
   switch (fId) {
   case StructurePieceType::NeMT: { // blaze spawner
     if (fMob.has_value()) {
@@ -410,6 +545,89 @@ CompoundTagPtr FortressPiece::Convert() const {
     }
     break;
   }
+  default: break;
+  }
+  return out;
+}
+
+CompoundTagPtr StrongholdPiece::Convert() const {
+  auto out = StructurePiece::Convert();
+
+  constexpr std::u8string_view entryDoors[] = {
+    u8"OPENING",
+    u8"WOOD_DOOR",
+    u8"GATES",
+    u8"IRON_DOOR",
+  };
+  out->set(u8"EntryDoor", String(entryDoors[fEntryDoor >= 0 && fEntryDoor <= 3 ? fEntryDoor : 0]));
+
+  switch (fId) {
+  case StructurePieceType::SHCC: { // StrongHoldChestCorridor
+    if (fChest.has_value()) {
+      out->set(u8"Chest", Bool(fChest.value()));
+    }
+    break;
+  }
+  case StructurePieceType::SHPR: { // StrongholdPortalRoom
+    if (fMob.has_value()) {
+      out->set(u8"Mob", Bool(fMob.value()));
+    }
+    break;
+  }
+  case StructurePieceType::SH5C: { // StrongholdFiveCrossing
+    if (fLeftLow.has_value()) {
+      out->set(u8"leftLow", Bool(fLeftLow.value()));
+    }
+    if (fLeftHigh.has_value()) {
+      out->set(u8"leftHigh", Bool(fLeftHigh.value()));
+    }
+    if (fRightLow.has_value()) {
+      out->set(u8"rightLow", Bool(fRightLow.value()));
+    }
+    if (fRightHigh.has_value()) {
+      out->set(u8"rightHigh", Bool(fRightHigh.value()));
+    }
+    break;
+  }
+  case StructurePieceType::SHLi: { // StrongholdLibrary
+    if (fTall.has_value()) {
+      out->set(u8"Tall", Bool(fTall.value()));
+    }
+    break;
+  }
+  case StructurePieceType::SHFC: {
+    if (fSteps.has_value()) {
+      out->set(u8"Steps", Int(fSteps.value()));
+    }
+    break;
+  }
+  case StructurePieceType::SHRC: {
+    if (fType.has_value()) {
+      out->set(u8"Type", Int(fType.value()));
+    }
+    break;
+  }
+  case StructurePieceType::SHSD: {
+    if (fSource.has_value()) {
+      out->set(u8"Source", Bool(fSource.value()));
+    }
+    break;
+  }
+  case StructurePieceType::SHS: {
+    if (fLeft.has_value()) {
+      out->set(u8"Left", Bool(fLeft.value()));
+    }
+    if (fRight.has_value()) {
+      out->set(u8"Right", Bool(fRight.value()));
+    }
+    break;
+  }
+  case StructurePieceType::SHStart:
+  case StructurePieceType::SHLT:
+  case StructurePieceType::SHPH:
+  case StructurePieceType::SHRT:
+  case StructurePieceType::SHSSD:
+    break;
   default: break;
   }
   return out;

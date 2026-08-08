@@ -60,6 +60,20 @@ enum class StructurePieceType {
   Iglu, // igloo
   TeSH, // swamp hut
   TeDP, // desert pyramid
+  
+  SHCC,    // StrongholdChestCorridor
+  SHPR,    // StrongholdPortalRoom
+  SH5C,    // StrongholdFiveCrossing
+  SHLi,    // StrongholdLibrary
+  SHFC,    // StrongholdFillerCorridor
+  SHRC,    // StrongholdRoomCrossing
+  SHS,     // StrongholdStraight
+  SHStart, // StrongholdStartPiece
+  SHSD,    // StrongholdStairsDown
+  SHLT,    // StrongholdLeftTurn
+  SHPH,    // StrongholdPrisonHall
+  SHRT,    // StrongholdRightTurn
+  SHSSD,   // StrongholdStraightStairsDown
 
   NeBCr,   // BridgeCrossing
   NeBEF,   // BridgeEndFiller
@@ -89,6 +103,20 @@ constexpr std::u8string_view PieceId(StructurePieceType piece) {
   case StructurePieceType::Iglu: return u8"minecraft:iglu";
   case StructurePieceType::TeSH: return u8"minecraft:tesh";
   case StructurePieceType::TeDP: return u8"minecraft:tedp";
+
+  case StructurePieceType::SHCC: return u8"minecraft:shcc";
+  case StructurePieceType::SHPR: return u8"minecraft:shpr";
+  case StructurePieceType::SH5C: return u8"minecraft:sh5c";
+  case StructurePieceType::SHLi: return u8"minecraft:shli";
+  case StructurePieceType::SHFC: return u8"minecraft:shfc";
+  case StructurePieceType::SHRC: return u8"minecraft:shrc";
+  case StructurePieceType::SHS: return u8"minecraft:shs";
+  case StructurePieceType::SHStart: return u8"minecraft:shstart";
+  case StructurePieceType::SHSD: return u8"minecraft:shsd";
+  case StructurePieceType::SHLT: return u8"minecraft:shlt";
+  case StructurePieceType::SHPH: return u8"minecraft:shph";
+  case StructurePieceType::SHRT: return u8"minecraft:shrt";
+  case StructurePieceType::SHSSD: return u8"minecraft:shssd";
 
   case StructurePieceType::NeBCr: return u8"minecraft:nebcr";
   case StructurePieceType::NeBEF: return u8"minecraft:nebef";
@@ -142,7 +170,50 @@ struct FortressPiece : StructurePiece {
   std::optional<i32> fSeed;
   std::optional<bool> fChest;
 
-  FortressPiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, std::optional<bool> mob, std::optional<i32> seed, std::optional<bool> chest);
+  FortressPiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
+    std::optional<bool> mob, std::optional<i32> seed, std::optional<bool> chest
+  );
+
+  CompoundTagPtr Convert() const override;
+};
+
+struct StrongholdPiece : StructurePiece {
+  i32 fEntryDoor;
+  std::optional<bool> fChest; // StrongholdChestCorridor
+  std::optional<bool> fMob;   // StrongholdPortalRoom
+
+  // StrongholdFiveCrossing
+  std::optional<bool> fLeftLow;
+  std::optional<bool> fLeftHigh;
+  std::optional<bool> fRightLow;
+  std::optional<bool> fRightHigh;
+
+  std::optional<bool> fTall; // StrongholdLibrary
+  std::optional<i32> fSteps; // StrongholdFillerCorridor
+  std::optional<i32> fType;  // StrongholdRoomCrossing
+
+  std::optional<bool> fSource; // StrongholdStairsDown
+
+  // StrongholdStraight
+  std::optional<bool> fLeft;
+  std::optional<bool> fRight;
+
+  StrongholdPiece(
+    Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id,
+    i32 entryDoor,
+    std::optional<bool> chest,
+    std::optional<bool> mob,
+    std::optional<bool> leftLow,
+    std::optional<bool> leftHigh,
+    std::optional<bool> rightLow,
+    std::optional<bool> rightHigh,
+    std::optional<bool> tall,
+    std::optional<i32> steps,
+    std::optional<i32> type,
+    std::optional<bool> source,
+    std::optional<bool> left,
+    std::optional<bool> right
+  );
 
   CompoundTagPtr Convert() const override;
 };
