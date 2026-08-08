@@ -78,6 +78,32 @@ enum class StructurePieceType {
   NeStart, // StartPiece
 };
 
+static const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
+  {u8"OMB", StructurePieceType::OMB},
+
+  {u8"TeJP", StructurePieceType::TeJP},
+  {u8"Iglu", StructurePieceType::Iglu},
+  {u8"TeSH", StructurePieceType::TeSH},
+  {u8"TeDP", StructurePieceType::TeDP},
+
+  {u8"NeBCr", StructurePieceType::NeBCr},
+  {u8"NeBEF", StructurePieceType::NeBEF},
+  {u8"NeBS", StructurePieceType::NeBS},
+  {u8"NeCCS", StructurePieceType::NeCCS},
+  {u8"NeCTB", StructurePieceType::NeCTB},
+  {u8"NeCE", StructurePieceType::NeCE},
+  {u8"NeSCSC", StructurePieceType::NeSCSC},
+  {u8"NeSCLT", StructurePieceType::NeSCLT},
+  {u8"NeSC", StructurePieceType::NeSC},
+  {u8"NeSCRT", StructurePieceType::NeSCRT},
+  {u8"NeCSR", StructurePieceType::NeCSR},
+  {u8"NeMT", StructurePieceType::NeMT},
+  {u8"NeRC", StructurePieceType::NeRC},
+  {u8"NeSR", StructurePieceType::NeSR},
+  {u8"NeStart", StructurePieceType::NeStart},
+};
+
+
 // namespaced structure pieces are registered in lowercase in 1.14+
 constexpr std::u8string_view PieceId(StructurePieceType piece) {
   switch (piece) {
@@ -119,6 +145,8 @@ struct StructurePiece {
 
   virtual ~StructurePiece() = default;
   virtual CompoundTagPtr Convert() const;
+
+  static std::unique_ptr<StructurePiece> ExtractPiece(std::span<const unsigned char> bytes, size_t &off);
 };
 
 struct TemplePiece : StructurePiece {
@@ -165,6 +193,8 @@ struct StructureFeature {
   class Impl;
   
   CompoundTagPtr Convert() const;
+
+  static std::optional<StructureFeature> Extract(std::span<const unsigned char> bytes);
 };
 
 #include <iostream>

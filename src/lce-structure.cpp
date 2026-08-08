@@ -1,13 +1,128 @@
 #include "je2be/nbt.hpp"
 #include "lce/structure/_structure-piece.hpp"
+#include <optional>
 
 namespace je2be::lce {
+
+static i32 readI32BE(std::span<const unsigned char> bytes, size_t *off) {
+  assert(*off + 4 <= bytes.size());
+  i32 value = static_cast<i32>(
+      static_cast<u32>(bytes[*off]) << 24 |
+      static_cast<u32>(bytes[*off + 1]) << 16 |
+      static_cast<u32>(bytes[*off + 2]) << 8 |
+      static_cast<u32>(bytes[*off + 3])
+  );
+  *off += 4;
+  return value;
+}
+
+static Volume readBB(std::span<const unsigned char> bytes, size_t *off) {
+  std::array<i32, 6> result{};
+  for (i32 &i : result) {
+    i = readI32BE(bytes, off);
+  }
+  return Volume{
+    Pos3i{result[0], result[1], result[2]},
+    Pos3i{result[3], result[4], result[5]}
+  };
+}
 
 class StructureFeature::Impl {
   Impl() = delete;
 
 public:
+
+static std::optional<StructureFeature> Extract(std::span<const unsigned char> bytes) {
+  size_t off = 0;
+  // 4 byte unknown header, 4 for 1.83, 3 for 1.69, 1.45, 1 for 1.21, 1.31, 0 for 1.15
+  off += 4;
+
+  if (off + 2 > bytes.size()) {
+    return std::nullopt;
+  }
+  u16 idLen = (static_cast<u16>(bytes[off]) << 8) | static_cast<u16>(bytes[off + 1]);
+  off += 2;
+  
+  if (off + idLen > bytes.size()) {
+    return std::nullopt;
+  }
+  std::u8string id{bytes.begin() + off, bytes.begin() + off + idLen};
+  off += idLen;
+  
+  i32 chunkX = readI32BE(bytes, &off);
+  i32 chunkZ = readI32BE(bytes, &off);
+
+  Volume featureBB = readBB(bytes, &off);
+  
+  i32 childrenLen = readI32BE(bytes, &off);
+  if (childrenLen < 0) {
+    return std::nullopt;
+  }
+  
+  std::vector<std::unique_ptr<StructurePiece>> pieces;
+  
+  for (size_t i = 0; i < childrenLen; i++) {
+    auto piece = StructurePiece::ExtractPiece(bytes, off);
+    if (!piece) {
+      // invalid piece, stop
+      break;
+    }
+    pieces.push_back(std::move(piece));
+  }
+  
+  if (pieces[0]->fId == StructurePieceType::OMB) {
+    StructureFeature start{
+      StructureType::OceanMonument, chunkX, chunkZ,
+      featureBB, std::move(pieces),
+    };
+    // Ocean Monument has extra `Processed` bytes
+    i32 processedLen = readI32BE(bytes, &off);
+    for (size_t i = 0; i < processedLen; i++) {
+      i32 x = readI32BE(bytes, &off);
+      i32 z = readI32BE(bytes, &off);
+      start.fProcessed.emplace_back(x, z);
+    }
+    return start;
+  }
+  
+  StructureType type;
+  switch (pieces[0]->fId) {
+  case StructurePieceType::TeJP: type = StructureType::JungleTemple; break;
+  case StructurePieceType::Iglu: type = StructureType::Igloo; break;
+  case StructurePieceType::TeSH: type = StructureType::SwampHut; break;
+  case StructurePieceType::TeDP: type = StructureType::DesertPyramid; break;
+
+  case StructurePieceType::NeBCr:
+  case StructurePieceType::NeBEF:
+  case StructurePieceType::NeBS:
+  case StructurePieceType::NeCCS:
+  case StructurePieceType::NeCTB:
+  case StructurePieceType::NeCE:
+  case StructurePieceType::NeSCSC:
+  case StructurePieceType::NeSCLT:
+  case StructurePieceType::NeSC:
+  case StructurePieceType::NeSCRT:
+  case StructurePieceType::NeCSR:
+  case StructurePieceType::NeMT:
+  case StructurePieceType::NeRC:
+  case StructurePieceType::NeSR:
+  case StructurePieceType::NeStart:
+    type = StructureType::Fortress;
+    break;
+  default:
+    return std::nullopt;
+  }
+
+  StructureFeature start{type, chunkX, chunkZ, featureBB, std::move(pieces) };
+  
+  return start;
+}
+
 };
+
+std::optional<StructureFeature> StructureFeature::Extract(std::span<const unsigned char> bytes) {
+  return Impl::Extract(bytes);
+}
 
 CompoundTagPtr StructureFeature::Convert() const {
   auto out = Compound();
@@ -77,7 +192,104 @@ class StructurePiece::Impl {
   Impl() = delete;
 
 public:
+  static std::unique_ptr<StructurePiece> ExtractPiece(std::span<const unsigned char> bytes, size_t &off) {
+    if (off + 2 > bytes.size()) {
+      return nullptr;
+    }
+    u16 pieceIdLen = (static_cast<u16>(bytes[off]) << 8) | static_cast<u16>(bytes[off + 1]);
+    off += 2;
+
+    if (off + pieceIdLen > bytes.size()) {
+      return nullptr;
+    }
+    std::u8string pieceId(bytes.begin() + off, bytes.begin() + off + pieceIdLen);
+    off += pieceIdLen;
+
+    // common StructurePiece fields
+    Volume pieceBB = readBB(bytes, &off);
+    i32 O = readI32BE(bytes, &off); // orientation
+    i32 GD = readI32BE(bytes, &off); // generation depth
+
+    auto it = sPieceType.find(pieceId);
+    if (it == sPieceType.end()) {
+      return nullptr;
+    }
+    auto id = it->second;
+    
+    if (id == StructurePieceType::TeJP || id == StructurePieceType::Iglu
+      || id == StructurePieceType::TeSH || id == StructurePieceType::TeDP) {
+      // common ScatteredFeaturePiece fields
+      i32 Width = readI32BE(bytes, &off);
+      i32 Height = readI32BE(bytes, &off);
+      i32 Depth = readI32BE(bytes, &off);
+      i32 HPos = readI32BE(bytes, &off); // y level of surface the structure was moved to, or -1 if not moved
+      switch (id) {
+      case StructurePieceType::TeJP:
+        // placedMainChest, placedHiddenChest, placedTrap1, placedTrap2 bools after unknown bytes
+      case StructurePieceType::Iglu:
+        // doesn't have any other fields in Java 1.12, but 1.13 has "Template" and "Rot" fields
+        // TODO: figure out what rest of bytes mean
+        break;
+      case StructurePieceType::TeSH:
+        // bool Witch; // assume Witch has been spawned, don't know which byte this is
+        // ignore rest of bytes, unknown & not needed in Java
+        break;
+      case StructurePieceType::TeDP:
+        // hasPlacedChest0, hasPlacedChest1, hasPlacedChest2, hasPlacedChest3 bools after unknown bytes
+        break;
+      default: return nullptr;
+      }
+      return std::make_unique<TemplePiece>(pieceBB, O, GD, id, Width, Height, Depth, HPos);
+    }
+
+    switch (id) {
+    case StructurePieceType::OMB: break;
+    case StructurePieceType::TeJP: break;
+    case StructurePieceType::Iglu: break;
+    case StructurePieceType::TeSH: break;
+    case StructurePieceType::TeDP: break;
+
+    case StructurePieceType::NeMT: { // blaze spawner
+      if (off >= bytes.size()) {
+        return nullptr;
+      }
+      bool mob = static_cast<bool>(bytes[off]);
+      off += 1;
+      return std::make_unique<FortressPiece>(pieceBB, O, GD, id, mob, std::nullopt, std::nullopt);
+    }
+    case StructurePieceType::NeBEF: {
+      i32 seed = readI32BE(bytes, &off);
+      return std::make_unique<FortressPiece>(pieceBB, O, GD, id, std::nullopt, seed, std::nullopt);
+    }
+    case StructurePieceType::NeSCLT: // fallthrough
+    case StructurePieceType::NeSCRT: {
+      bool chest = static_cast<bool>(bytes[off]);
+      off += 1;
+      return std::make_unique<FortressPiece>(pieceBB, O, GD, id, std::nullopt, std::nullopt, chest);
+    }
+    case StructurePieceType::NeBCr:
+    case StructurePieceType::NeBS:
+    case StructurePieceType::NeCCS:
+    case StructurePieceType::NeCTB:
+    case StructurePieceType::NeCE:
+    case StructurePieceType::NeSCSC:
+    case StructurePieceType::NeSC:
+    case StructurePieceType::NeCSR:
+    case StructurePieceType::NeRC:
+    case StructurePieceType::NeSR:
+    case StructurePieceType::NeStart:
+      return std::make_unique<FortressPiece>(pieceBB, O, GD, id, std::nullopt, std::nullopt, std::nullopt);
+    }
+
+    return std::make_unique<StructurePiece>(pieceBB, O, GD, id);
+
+    return nullptr;
+  }
 };
+
+std::unique_ptr<StructurePiece> StructurePiece::ExtractPiece(std::span<const unsigned char> bytes, size_t &off) {
+  return Impl::ExtractPiece(bytes, off);
+}
 
 CompoundTagPtr StructurePiece::Convert() const {
   auto out = Compound();
