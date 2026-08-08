@@ -84,6 +84,8 @@ public:
         std::cout << start.value() << std::endl;
 
         this->add(std::move(start).value(), dim);
+      } else {
+        std::cout << "error extracting structure start" << std::endl;
       }
     }
   }

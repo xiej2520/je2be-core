@@ -1,5 +1,8 @@
 #include "je2be/nbt.hpp"
 #include "lce/structure/_structure-piece.hpp"
+#include "mcfile/encoding.hpp"
+#include "mcfile/stream/byte-stream.hpp"
+#include "mcfile/stream/input-stream-reader.hpp"
 #include <optional>
 
 namespace je2be::lce {
@@ -10,37 +13,43 @@ class StructureFeature::Impl {
 public:
 
 static std::optional<StructureFeature> Extract(std::span<const u8> bytes) {
-  size_t off = 0;
-  // 4 byte unknown header, 4 for 1.83, 3 for 1.69, 1.45, 1 for 1.21, 1.31, 0 for 1.15
-  off += 4;
+  std::vector<u8> buffer(bytes.begin(), bytes.end());
+  auto stream = std::make_shared<mcfile::stream::ByteStream>(buffer);
+  
+  mcfile::stream::InputStreamReader reader{stream, mcfile::Encoding::Java};
 
-  if (off + 2 > bytes.size()) {
+  // 4 byte version (?) header, 4 for 1.83, 3 for 1.69, 1.45, 1 for 1.21, 1.31, 0 for 1.15
+  if (!reader.seek(4)) {
     return std::nullopt;
   }
-  u16 idLen = (static_cast<u16>(bytes[off]) << 8) | static_cast<u16>(bytes[off + 1]);
-  off += 2;
-  
-  if (off + idLen > bytes.size()) {
+
+  std::u8string id;
+  if (!reader.read(id)) {
     return std::nullopt;
   }
-  std::u8string id{bytes.begin() + off, bytes.begin() + off + idLen};
-  off += idLen;
-  
-  i32 chunkX = readI32BE(bytes, &off);
-  i32 chunkZ = readI32BE(bytes, &off);
+ 
+  i32 chunkX;
+  i32 chunkZ;
+  if (!reader.read(&chunkX) || !reader.read(&chunkZ)) {
+    return std::nullopt;
+  }
 
-  Volume featureBB = readBB(bytes, &off);
+  Volume featureBB{{0, 0, 0}, {0, 0, 0}};
+  if (!readBB(reader, featureBB)) {
+    return std::nullopt;
+  }
   
-  i32 childrenLen = readI32BE(bytes, &off);
-  if (childrenLen < 0) {
+  i32 childrenLen;
+  if (!reader.read(&childrenLen) || childrenLen < 0 || childrenLen > 4096) { // arbitrary 4096 limit
     return std::nullopt;
   }
   
   std::vector<std::unique_ptr<StructurePiece>> pieces;
   
   for (size_t i = 0; i < childrenLen; i++) {
-    auto piece = StructurePiece::ExtractPiece(bytes, off);
+    auto piece = StructurePiece::ExtractPiece(reader);
     if (!piece) {
+      std::cout << "error extracting structure piece in " << std::string(id.begin(), id.end()) << std::endl;
       // invalid piece, stop
       break;
     }
@@ -55,12 +64,17 @@ static std::optional<StructureFeature> Extract(std::span<const u8> bytes) {
       StructureType::OceanMonument, chunkX, chunkZ,
       featureBB, std::move(pieces),
     };
-    // Ocean Monument has extra `Processed` bytes
-    i32 processedLen = readI32BE(bytes, &off);
-    for (size_t i = 0; i < processedLen; i++) {
-      i32 x = readI32BE(bytes, &off);
-      i32 z = readI32BE(bytes, &off);
-      start.fProcessed.emplace_back(x, z);
+    // Ocean Monument has extra `Processed` bytes, if we can't read it then just skip them
+    i32 processedLen;
+    if (reader.read(&processedLen)) {
+      for (size_t i = 0; i < processedLen; i++) {
+        i32 x;
+        i32 z;
+        if (!reader.read(&x) || !reader.read(&z)) {
+          break;
+        }
+        start.fProcessed.emplace_back(x, z);
+      }
     }
     return start;
   }
@@ -172,23 +186,22 @@ class StructurePiece::Impl {
   Impl() = delete;
 
 public:
-  static std::unique_ptr<StructurePiece> ExtractPiece(std::span<const u8> bytes, size_t &off) {
-    if (off + 2 > bytes.size()) {
+  static std::unique_ptr<StructurePiece> ExtractPiece(mcfile::stream::InputStreamReader &reader) {
+    std::u8string pieceId;
+    if (!reader.read(pieceId)) {
       return nullptr;
     }
-    u16 pieceIdLen = (static_cast<u16>(bytes[off]) << 8) | static_cast<u16>(bytes[off + 1]);
-    off += 2;
-
-    if (off + pieceIdLen > bytes.size()) {
-      return nullptr;
-    }
-    std::u8string pieceId(bytes.begin() + off, bytes.begin() + off + pieceIdLen);
-    off += pieceIdLen;
 
     // common StructurePiece fields
-    Volume pieceBB = readBB(bytes, &off);
-    i32 O = readI32BE(bytes, &off); // orientation
-    i32 GD = readI32BE(bytes, &off); // generation depth
+    Volume pieceBB{{0, 0, 0}, {0, 0, 0}};
+    if (!readBB(reader, pieceBB)) {
+      return nullptr;
+    }
+    i32 O; // orientation
+    i32 GD; // generation depth
+    if (!reader.read(&O) || !reader.read(&GD)) {
+      return nullptr;
+    }
 
     auto it = sPieceType.find(pieceId);
     if (it == sPieceType.end()) {
@@ -199,10 +212,12 @@ public:
     if (id == StructurePieceType::TeJP || id == StructurePieceType::Iglu
       || id == StructurePieceType::TeSH || id == StructurePieceType::TeDP) {
       // common ScatteredFeaturePiece fields
-      i32 Width = readI32BE(bytes, &off);
-      i32 Height = readI32BE(bytes, &off);
-      i32 Depth = readI32BE(bytes, &off);
-      i32 HPos = readI32BE(bytes, &off); // y level of surface the structure was moved to, or -1 if not moved
+      i32 Width, Height, Depth;
+      i32 HPos;
+      if (!reader.read(&Width) || !reader.read(&Height) || !reader.read(&Depth) || !reader.read(&HPos)) {
+        return nullptr;
+      }
+
       switch (id) {
       case StructurePieceType::TeJP:
         // placedMainChest, placedHiddenChest, placedTrap1, placedTrap2 bools after unknown bytes
@@ -230,22 +245,25 @@ public:
     case StructurePieceType::TeDP: break;
 
     case StructurePieceType::NeMT: { // blaze spawner
-      if (off >= bytes.size()) {
-        return nullptr;
+      if (u8 b; reader.read(&b)) {
+        bool mob = static_cast<bool>(b);
+        return std::make_unique<FortressPiece>(pieceBB, O, GD, id, mob, std::nullopt, std::nullopt);
       }
-      bool mob = static_cast<bool>(bytes[off]);
-      off += 1;
-      return std::make_unique<FortressPiece>(pieceBB, O, GD, id, mob, std::nullopt, std::nullopt);
+      return nullptr;
     }
     case StructurePieceType::NeBEF: {
-      i32 seed = readI32BE(bytes, &off);
-      return std::make_unique<FortressPiece>(pieceBB, O, GD, id, std::nullopt, seed, std::nullopt);
+      if (i32 seed; reader.read(&seed)) {
+        return std::make_unique<FortressPiece>(pieceBB, O, GD, id, std::nullopt, seed, std::nullopt);
+      }
+      return nullptr;
     }
     case StructurePieceType::NeSCLT: // fallthrough
     case StructurePieceType::NeSCRT: {
-      bool chest = static_cast<bool>(bytes[off]);
-      off += 1;
-      return std::make_unique<FortressPiece>(pieceBB, O, GD, id, std::nullopt, std::nullopt, chest);
+      if (u8 b; reader.read(&b)) {
+        bool chest = static_cast<bool>(b);
+        return std::make_unique<FortressPiece>(pieceBB, O, GD, id, std::nullopt, std::nullopt, chest);
+      }
+      return nullptr;
     }
     case StructurePieceType::NeBCr:
     case StructurePieceType::NeBS:
@@ -267,8 +285,8 @@ public:
   }
 };
 
-std::unique_ptr<StructurePiece> StructurePiece::ExtractPiece(std::span<const u8> bytes, size_t &off) {
-  return Impl::ExtractPiece(bytes, off);
+std::unique_ptr<StructurePiece> StructurePiece::ExtractPiece(mcfile::stream::InputStreamReader &reader) {
+  return Impl::ExtractPiece(reader);
 }
 
 CompoundTagPtr StructurePiece::Convert() const {

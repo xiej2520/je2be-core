@@ -146,14 +146,14 @@ struct StructurePiece {
   virtual ~StructurePiece() = default;
   virtual CompoundTagPtr Convert() const;
 
-  static std::unique_ptr<StructurePiece> ExtractPiece(std::span<const u8> bytes, size_t &off);
+  static std::unique_ptr<StructurePiece> ExtractPiece(mcfile::stream::InputStreamReader &reader);
 };
 
 struct TemplePiece : StructurePiece {
   i32 fWidth;
   i32 fHeight;
   i32 fDepth;
-  i32 fHPos;
+  i32 fHPos;  // y level of surface the structure was moved to, or -1 if not moved
   TemplePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, i32 width, i32 height, i32 depth, i32 hPos)
   : StructurePiece(bb, orientation, generationDepth, id),
     fWidth{width}, fHeight{height}, fDepth{depth}, fHPos{hPos} {}
@@ -197,27 +197,20 @@ struct StructureFeature {
   static std::optional<StructureFeature> Extract(std::span<const u8> bytes);
 };
 
-static i32 readI32BE(std::span<const u8> bytes, size_t *off) {
-  assert(*off + 4 <= bytes.size());
-  i32 value = static_cast<i32>(
-      static_cast<u32>(bytes[*off]) << 24 |
-      static_cast<u32>(bytes[*off + 1]) << 16 |
-      static_cast<u32>(bytes[*off + 2]) << 8 |
-      static_cast<u32>(bytes[*off + 3])
-  );
-  *off += 4;
-  return value;
-}
+static bool readBB(mcfile::stream::InputStreamReader& reader, Volume& out) {
+  i32 x1, y1, z1, x2, y2, z2;
 
-static Volume readBB(std::span<const u8> bytes, size_t *off) {
-  std::array<i32, 6> result{};
-  for (i32 &i : result) {
-    i = readI32BE(bytes, off);
+  if (!reader.read(&x1) || !reader.read(&y1) || !reader.read(&z1) ||
+      !reader.read(&x2) || !reader.read(&y2) || !reader.read(&z2)) {
+    return false;
   }
-  return Volume{
-    Pos3i{result[0], result[1], result[2]},
-    Pos3i{result[3], result[4], result[5]}
+
+  out = Volume{
+    Pos3i{x1, y1, z1},
+    Pos3i{x2, y2, z2},
   };
+
+  return true;
 }
 
 #include <iostream>
