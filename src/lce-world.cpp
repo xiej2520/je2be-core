@@ -103,7 +103,7 @@ public:
     Status st = Parallel::Process<Pos2i>(
         innerChunks,
         concurrency,
-        [levelRootDirectory, worldDir, chunkTempDir, ctx, options, dimension, progress, &progressChunks, &behavior](Pos2i const &chunk) -> Status {
+        [levelRootDirectory, worldDir, chunkTempDir, &ctx, options, dimension, progress, &progressChunks, &behavior](Pos2i const &chunk) -> Status {
           int rx = mcfile::Coordinate::RegionFromChunk(chunk.fX);
           int rz = mcfile::Coordinate::RegionFromChunk(chunk.fZ);
           auto mcr = levelRootDirectory / worldDir / "region" / ("r." + std::to_string(rx) + "." + std::to_string(rz) + ".mcr");
@@ -362,7 +362,7 @@ private:
                              int cz,
                              std::filesystem::path chunkTempDir,
                              Behavior const &behavior,
-                             Context ctx,
+                             Context const &ctx,
                              Options options) {
     using namespace std;
     shared_ptr<mcfile::je::WritableChunk> chunk;
