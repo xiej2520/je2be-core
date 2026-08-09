@@ -1142,7 +1142,7 @@ private:
     std::unordered_map<std::u8string_view, std::shared_ptr<CompoundTag>> starts;
     std::unordered_map<std::u8string_view, std::unordered_set<i64>> references;
 
-    auto structures = ctx.fStructures->nearbyStarts(dimension, Pos2i{cx, cz});
+    auto structures = ctx.fStructures->NearbyStarts(dimension, Pos2i{cx, cz});
     for (auto const *s : structures) {
       // structure start
       if (s->fChunkX == cx && s->fChunkZ == cz) {

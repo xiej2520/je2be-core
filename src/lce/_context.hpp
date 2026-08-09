@@ -6,7 +6,7 @@
 
 #include "_pos3.hpp"
 #include "lce/_tile-entity-convert-result.hpp"
-#include "lce/structure/_structures.hpp"
+#include "lce/structure/_legacy-structures.hpp"
 
 namespace je2be::lce {
 

@@ -666,7 +666,7 @@ private:
         inStream.reset();
 
         if (inRoot) {
-          ctx.fStructures->ExtractStructures(*inRoot, sIt->second.first, sIt->second.second);
+          ctx.fStructures->Extract(*inRoot, sIt->second.first, sIt->second.second);
         }
       }
     }

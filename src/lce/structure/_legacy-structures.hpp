@@ -6,10 +6,8 @@
 #include <string>
 #include <string_view>
 #include <utility>
-#include "_pos3.hpp"
 #include "je2be/strings.hpp"
-#include "_structure-piece.hpp"
-#include "_volume.hpp"
+#include "lce/structure/_structure.hpp"
 #include "mcfile/dimension.hpp"
 
 namespace je2be::lce {
@@ -17,7 +15,7 @@ namespace je2be::lce {
 // Reference 1.16.5 LegacyStructureDataHandler, 26.1+ LegacyStructureFileFix
 class LegacyStructures {
 public:
-  void add(StructureFeature p, mcfile::Dimension dim) {
+  void Add(Structure p, mcfile::Dimension dim) {
     switch (dim) {
     case mcfile::Dimension::Overworld:
       fOverworld.push_back(std::move(p));
@@ -31,8 +29,8 @@ public:
     }
   }
 
-  std::vector<const StructureFeature *> nearbyStarts(mcfile::Dimension d, Pos2i chunk) const {
-    const std::vector<StructureFeature> *structures = nullptr;
+  std::vector<const Structure *> NearbyStarts(mcfile::Dimension d, Pos2i chunk) const {
+    const std::vector<Structure> *structures = nullptr;
     switch (d) {
     case mcfile::Dimension::Overworld:
       structures = &fOverworld;
@@ -47,7 +45,7 @@ public:
       return {};
     }
 
-    std::vector<const StructureFeature *> out;
+    std::vector<const Structure *> out;
     for (auto const &s : *structures) {
       // Vanilla LegacyStructureDataHandler: if chunk is within 8 of structure start (inclusive), add reference
       if (std::abs(chunk.fX - s.fChunkX) <= 8 && std::abs(chunk.fZ - s.fChunkZ) <= 8) {
@@ -57,7 +55,7 @@ public:
     return out;
   }
 
-  void ExtractStructures(CompoundTag const &in, mcfile::Dimension dim, StructureType type) {
+  void Extract(CompoundTag const &in, mcfile::Dimension dim, StructureType type) {
     auto data = in.compoundTag(u8"data");
     if (!data) {
       return;
@@ -79,11 +77,9 @@ public:
       auto const [_x, _z] = *coords;
       // ignore chunk coords key, they are unused in Java as well. Use ChunkX, ChunkZ in tag.
       
-      auto start = StructureFeature::Extract(bytes, type);
+      auto start = Structure::Parse(bytes, type);
       if (start.has_value()) {
-        std::cout << start.value() << std::endl;
-
-        this->add(std::move(start).value(), dim);
+        Add(std::move(start.value()), dim);
       } else {
         std::cout << "error extracting structure start" << std::endl;
       }
@@ -96,9 +92,9 @@ public:
   }
 
 private:
-  std::vector<StructureFeature> fOverworld;
-  std::vector<StructureFeature> fNether;
-  std::vector<StructureFeature> fEnd;
+  std::vector<Structure> fOverworld;
+  std::vector<Structure> fNether;
+  std::vector<Structure> fEnd;
 
   static std::optional<std::pair<i32, i32>> ParseChunkCoords(std::u8string_view key) {
     if (!key.starts_with(u8"[") || !key.ends_with(u8"]")) {
