@@ -44,6 +44,10 @@ std::u8string NamespaceFeatureName(StructureType type) {
 }
 
 const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
+  {u8"MSCorridor", StructurePieceType::MSCorridor},
+  {u8"MSCrossing", StructurePieceType::MSCrossing},
+  {u8"MSRoom",     StructurePieceType::MSRoom},
+  {u8"MSStairs",   StructurePieceType::MSStairs},
   {u8"OMB", StructurePieceType::OMB},
 
   {u8"BTP", StructurePieceType::BTP},
@@ -89,6 +93,11 @@ const std::unordered_map<std::u8string, StructurePieceType> sPieceType {
 // namespaced structure pieces are registered in lowercase in 1.14+
 std::u8string_view PieceId(StructurePieceType piece) {
   switch (piece) {
+  case StructurePieceType::MSCorridor: return u8"minecraft:mscorridor";
+  case StructurePieceType::MSCrossing: return u8"minecraft:mscrossing";
+  case StructurePieceType::MSRoom:     return u8"minecraft:msroom";
+  case StructurePieceType::MSStairs:   return u8"minecraft:msstairs";
+
   case StructurePieceType::OMB: return u8"minecraft:omb";
 
   case StructurePieceType::BTP: return u8"minecraft:btp";
@@ -367,10 +376,75 @@ std::unique_ptr<StructurePiece> StructurePiece::Parse(mcfile::stream::InputStrea
     }
     return std::make_unique<TemplePiece>(pieceBB, O, GD, id, data, Width, Height, Depth, HPos);
   }
+  
+  if (type == StructureType::Mineshaft) {
+    i32 MST;
+    if (!reader.read(&MST)) {
+      return nullptr;
+    }
+
+    switch (id) {
+    case StructurePieceType::MSCorridor: {
+      u8 b[3]{};
+      for (int i = 0; i < 3; i++) {
+        if (!reader.read(&b[i])) {
+          return nullptr;
+        }
+      }
+      data->set(u8"hr", Bool(b[0])); // hasRails
+      data->set(u8"sc", Bool(b[1])); // spiderCorridor
+      data->set(u8"hps", Bool(b[2])); // hasPlacedSpider
+      i32 numSections;
+      if (!reader.read(&numSections)) {
+        return nullptr;
+      }
+      data->set(u8"Num", Int(numSections));
+      break;
+    }
+    case StructurePieceType::MSCrossing: {
+      u8 isTwoFloored;
+      if (!reader.read(&isTwoFloored)) {
+        return nullptr;
+      }
+      data->set(u8"tf", Bool(static_cast<bool>(isTwoFloored)));
+      i32 direction;
+      if (!reader.read(&direction)) {
+        return nullptr;
+      }
+      data->set(u8"D", Int(direction));
+      break;
+    }
+    case StructurePieceType::MSRoom: {
+      i32 entranceLen;
+      if (!reader.read(&entranceLen)) {
+        return nullptr;
+      }
+      
+      auto entrances = List<Tag::Type::IntArray>();
+      for (i32 i = 0; i < entranceLen; i++) {
+        Volume childEntranceBox{{0, 0, 0}, {0, 0, 0}};
+        if (!readBB(reader, childEntranceBox)) {
+          return nullptr;
+        }
+        entrances->push_back(toBoundingBox(childEntranceBox));
+      }
+      data->set(u8"Entrances", entrances);
+
+      break;
+    }
+    case StructurePieceType::MSStairs: break;
+    default: return nullptr;
+    }
+    return std::make_unique<MineshaftPiece>(pieceBB, O, GD, id, data, MST);
+  }
 
   switch (id) {
   case StructurePieceType::OMB: break;
   case StructurePieceType::BTP: break;
+  case StructurePieceType::MSCorridor: break;
+  case StructurePieceType::MSCrossing: break;
+  case StructurePieceType::MSRoom: break;
+  case StructurePieceType::MSStairs: break;
   case StructurePieceType::TeJP: break;
   case StructurePieceType::Iglu: break;
   case StructurePieceType::TeSH: break;
@@ -536,6 +610,9 @@ std::unique_ptr<StructurePiece> StructurePiece::Parse(mcfile::stream::InputStrea
   return std::make_unique<StructurePiece>(pieceBB, O, GD, id, data);
 }
 
+MineshaftPiece::MineshaftPiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, CompoundTagPtr data, i32 mst)
+  : StructurePiece(bb, orientation, generationDepth, id, data), fMST{mst} {}
+
 TemplePiece::TemplePiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, CompoundTagPtr data, i32 width, i32 height, i32 depth, i32 hPos)
   : StructurePiece(bb, orientation, generationDepth, id, data), fWidth{width}, fHeight{height}, fDepth{depth}, fHPos{hPos} {}
 
@@ -565,6 +642,14 @@ CompoundTagPtr StructurePiece::Convert() const {
       out->set(t.first, t.second);
     }
   }
+
+  return out;
+}
+
+CompoundTagPtr MineshaftPiece::Convert() const {
+  auto out = StructurePiece::Convert();
+
+  out->set(u8"MST", Int(fMST));
 
   return out;
 }

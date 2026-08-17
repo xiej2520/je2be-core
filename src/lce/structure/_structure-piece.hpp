@@ -13,6 +13,11 @@ namespace je2be::lce {
 enum class StructureType;
 
 enum class StructurePieceType {
+  MSCorridor, // MineShaftCorridor
+  MSCrossing, // MineShaftCrossing
+  MSRoom,     // MineShaftRoom
+  MSStairs,   // MineShaftStairs
+
   OMB, // OceanMonumentBuilding is the only piece saved in Java 1.12.2 and LCE
   BTP, // BuriedTreasurePiece
 
@@ -69,6 +74,13 @@ struct StructurePiece {
   virtual CompoundTagPtr Convert() const;
 
   static std::unique_ptr<StructurePiece> Parse(mcfile::stream::InputStreamReader &reader, StructureType type);
+};
+
+struct MineshaftPiece : StructurePiece {
+  i32 fMST; // MineShaftType
+  MineshaftPiece(Volume bb, i32 orientation, i32 generationDepth, StructurePieceType id, CompoundTagPtr data, i32 mst);
+
+  CompoundTagPtr Convert() const override;
 };
 
 struct TemplePiece : StructurePiece {
